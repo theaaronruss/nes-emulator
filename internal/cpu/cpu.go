@@ -6,12 +6,7 @@ type Cpu struct {
 	y			uint8	// y index
 	pc			uint16	// program counter
 	s			uint8	// stack pointer
-	carry		bool	// carry flag
-	zero		bool	// zero flag
-	intDisable	bool	// interrupt disable flag
-	decimal		bool	// decimal flag (decimal mode disabled on NES)
-	overflow	bool	// overflow flag
-	negative	bool	// negative flag
+	status		uint8	// status flags (n, o, 1, b, d, i, z, c)
 	cycleDelay	int
 }
 
@@ -175,12 +170,7 @@ func NewCpu() *Cpu {
 	return &Cpu{
 		a: 0, x: 0, y: 0,
 		pc: 0xFFFC, s: 0xFD,
-		carry: false,
-		zero: false,
-		intDisable: true,
-		decimal: false,
-		overflow: false,
-		negative: false,
+		status: 0x20,
 		cycleDelay: 0,
 	}
 }
