@@ -1,13 +1,14 @@
 package cpu
 
 type Cpu struct {
-	a			uint8	// accumulator
-	x			uint8	// x index
-	y			uint8	// y index
-	pc			uint16	// program counter
-	s			uint8	// stack pointer
-	status		uint8	// status flags (n, o, 1, b, d, i, z, c)
-	cycleDelay	int
+	a          uint8        // accumulator
+	x          uint8        // x index
+	y          uint8        // y index
+	pc         uint16       // program counter
+	s          uint8        // stack pointer
+	status     uint8        // status flags (n, o, 1, b, d, i, z, c)
+	memory     [65535]uint8 // ram
+	cycleDelay int
 }
 
 var ops [255]func(*Cpu)
@@ -169,17 +170,29 @@ func init() {
 func NewCpu() *Cpu {
 	return &Cpu{
 		a: 0, x: 0, y: 0,
-		pc: 0xFFFC, s: 0xFD,
-		status: 0x20,
+		pc: 0x8004, s: 0xFF,
+		status:     0x20,
+		memory:     [65535]uint8{},
 		cycleDelay: 0,
 	}
 }
 
-func (c *Cpu) Execute(instruction int32) {
+func (c *Cpu) Execute(instruction uint32) {
+	byte1 := (instruction & 0xFF000000) >> 24
+	ops[byte1](c)
 }
 
 // brk: force break
 func forceBreak(c *Cpu) {
+	tempPc := c.pc + 2
+	pcByte1 := uint8(tempPc & 0xFF00 >> 8)
+	pcByte2 := uint8(tempPc & 0x00FF)
+	c.memory[c.s] = pcByte1
+	c.memory[c.s-1] = pcByte2
+	c.memory[c.s-2] = c.status | 0b00110000
+	c.status |= 0b00000100 // set interrupt disable flag
+	c.s -= 3
+	c.pc = 0xFFFE
 }
 
 // ora: bitwise or (x-indexed, indirect)
