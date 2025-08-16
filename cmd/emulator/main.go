@@ -6,5 +6,5 @@ import (
 
 func main() {
 	cpu := cpu.NewCpu()
-	cpu.Execute(0x00000000)
+	cpu.Cycle()
 }

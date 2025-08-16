@@ -170,16 +170,22 @@ func init() {
 func NewCpu() *Cpu {
 	return &Cpu{
 		a: 0, x: 0, y: 0,
-		pc: 0x8004, s: 0xFF,
-		status:     0x20,
+		pc: 0x0800, s: 0xFF,
+		status:     0x04,
 		memory:     [65535]uint8{},
 		cycleDelay: 0,
 	}
 }
 
-func (c *Cpu) Execute(instruction uint32) {
-	byte1 := (instruction & 0xFF000000) >> 24
-	ops[byte1](c)
+func (c *Cpu) Cycle() {
+	/*
+		For debugging
+	*/
+	c.memory[0x800] = 0x09
+	c.memory[0x801] = 0x17
+
+	opcode := c.memory[c.pc]
+	ops[opcode](c)
 }
 
 // brk: force break
@@ -190,9 +196,10 @@ func forceBreak(c *Cpu) {
 	c.memory[c.s] = pcByte1
 	c.memory[c.s-1] = pcByte2
 	c.memory[c.s-2] = c.status | 0b00110000
-	c.status |= 0b00000100 // set interrupt disable flag
+	c.status |= 0b00000100
 	c.s -= 3
 	c.pc = 0xFFFE
+	c.cycleDelay = 7
 }
 
 // ora: bitwise or (x-indexed, indirect)
@@ -213,6 +220,14 @@ func pushProcessorStatus(c *Cpu) {
 
 // ora: bitwise or (immediate)
 func bitwiseOrImmediate(c *Cpu) {
+	value := c.memory[c.pc+1]
+	c.a |= value
+	if c.a == 0 {
+		c.status |= 0b00000010
+	}
+	if c.a&0x80 == 0x80 {
+		c.status |= 0b10000000
+	}
 }
 
 // asl: arithmetic shift left (accumulator)
