@@ -182,18 +182,12 @@ func NewCpu() *Cpu {
 }
 
 func (c *Cpu) Cycle() {
-	/*
-		For debugging
-	*/
-	c.memory[0x800] = 0x09
-	c.memory[0x801] = 0x17
-
 	opcode := c.memory[c.pc]
 	ops[opcode](c)
 }
 
 func (c *Cpu) stackPush(data uint8) {
-	if c.s <= 0 {
+	if c.s == 0 {
 		panic("stack overflow")
 	}
 	address := stackBase + uint16(c.s)
@@ -267,7 +261,6 @@ func forceBreak(c *Cpu) {
 	c.stackPush(pcByte2)
 	c.stackPush(c.status | 0b00110000)
 	c.setInterruptDisable()
-	c.s -= 3
 	c.pc = 0xFFFE
 	c.cycleDelay = 7
 }
