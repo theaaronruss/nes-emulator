@@ -292,8 +292,8 @@ func forceBreak(c *Cpu) {
 	c.stackPush(pcByte2)
 	c.stackPush(c.status | 0b00110000)
 	c.setInterruptDisable()
-	c.pc = 0xFFFE
 	c.cycleDelay = 7
+	c.pc = 0xFFFE
 }
 
 // ora: bitwise or (x-indexed, indirect)
@@ -326,6 +326,7 @@ func bitwiseOrImmediate(c *Cpu) {
 		c.setNegative()
 	}
 	c.cycleDelay = 2
+	c.pc += 2
 }
 
 // asl: arithmetic shift left (accumulator)
@@ -407,6 +408,7 @@ func bitwiseAndImmediate(c *Cpu) {
 		c.setNegative()
 	}
 	c.cycleDelay = 2
+	c.pc += 2
 }
 
 // rol: rotate left (accumulator)
@@ -445,6 +447,7 @@ func rotateLeftZeroPageX(c *Cpu) {
 func setCarry(c *Cpu) {
 	c.setCarry()
 	c.cycleDelay = 2
+	c.pc++
 }
 
 // and: bitwise and (absolute, y-indexed)
@@ -461,6 +464,12 @@ func rotateLeftAbsoluteX(c *Cpu) {
 
 // rti: return from interrupt
 func returnFromInterrupt(c *Cpu) {
+	c.status = c.stackPop() | 0b11001111
+	pcByte2 := c.stackPop()
+	var pcByte1 uint16 = uint16(c.stackPop())
+	c.pc = pcByte1 << 8 | uint16(pcByte2)
+	c.cycleDelay = 6
+	c.pc++
 }
 
 // eor: bitwise exclusive or (x-indexed, indirect)
