@@ -325,6 +325,7 @@ func bitwiseOrImmediate(c *Cpu) {
 	if c.a&0b10000000 != 0 {
 		c.setNegative()
 	}
+	c.cycleDelay = 2
 }
 
 // asl: arithmetic shift left (accumulator)
@@ -405,6 +406,7 @@ func bitwiseAndImmediate(c *Cpu) {
 	if c.a&0b10000000 != 0 {
 		c.setNegative()
 	}
+	c.cycleDelay = 2
 }
 
 // rol: rotate left (accumulator)
@@ -441,6 +443,8 @@ func rotateLeftZeroPageX(c *Cpu) {
 
 // sec: set carry
 func setCarry(c *Cpu) {
+	c.setCarry()
+	c.cycleDelay = 2
 }
 
 // and: bitwise and (absolute, y-indexed)
