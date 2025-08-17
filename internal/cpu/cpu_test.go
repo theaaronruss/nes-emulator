@@ -73,3 +73,51 @@ func TestBitwiseOrImmediateNegative(t *testing.T) {
 		t.Error("incorrect negative flag")
 	}
 }
+
+func TestBitwiseAndImmediate(t *testing.T) {
+	c := NewCpu()
+	c.a = 0b11010101
+	c.memory[c.pc+1] = 0b01011101
+	bitwiseAndImmediate(c)
+	if c.a != 0b01010101 {
+		t.Error("invalid accumulator value")
+	}
+	if c.testZero() {
+		t.Error("invalid zero flag")
+	}
+	if c.testNegative() {
+		t.Error("invalid negative flag")
+	}
+}
+
+func TestBitwiseAndImmediateZero(t *testing.T) {
+	c := NewCpu()
+	c.a = 0b10101010
+	c.memory[c.pc+1] = 0b01010101
+	bitwiseAndImmediate(c)
+	if c.a != 0b00000000 {
+		t.Error("invalid accumulator value")
+	}
+	if !c.testZero() {
+		t.Error("invalid zero flag")
+	}
+	if c.testNegative() {
+		t.Error("invalid negative flag")
+	}
+}
+
+func TestBitwiseAndImmediateNegative(t *testing.T) {
+	c := NewCpu()
+	c.a = 0b11010101
+	c.memory[c.pc+1] = 0b11011101
+	bitwiseAndImmediate(c)
+	if c.a != 0b11010101 {
+		t.Error("invalid accumulator value")
+	}
+	if c.testZero() {
+		t.Error("invalid zero flag")
+	}
+	if !c.testNegative() {
+		t.Error("invalid negative flag")
+	}
+}

@@ -12,7 +12,14 @@ type Cpu struct {
 }
 
 const (
-	stackBase uint16 = 0x0100
+	stackBase                uint16 = 0x0100
+	negativeFlagMask         uint8  = 0b10000000
+	overflowFlagMask         uint8  = 0b01000000
+	bFlagMask                uint8  = 0b00010000
+	decimalFlagMask          uint8  = 0b00001000
+	interruptDisableFlagMask uint8  = 0b00000100
+	zeroFlagMask             uint8  = 0b00000010
+	carryFlagMask            uint8  = 0b00000001
 )
 
 var ops [255]func(*Cpu)
@@ -205,75 +212,75 @@ func (c *Cpu) stackPop() uint8 {
 }
 
 func (c *Cpu) setNegative() {
-	c.status |= 0b10000000
+	c.status |= negativeFlagMask
 }
 
 func (c *Cpu) clearNegative() {
-	c.status &= 0b01111111
+	c.status &= ^negativeFlagMask
 }
 
 func (c *Cpu) testNegative() bool {
-	return c.status & 0b10000000 != 0
+	return c.status&negativeFlagMask != 0
 }
 
 func (c *Cpu) setOverflow() {
-	c.status |= 0b01000000
+	c.status |= overflowFlagMask
 }
 
 func (c *Cpu) clearOverflow() {
-	c.status &= 0b10111111
+	c.status &= ^overflowFlagMask
 }
 
 func (c *Cpu) testOverflow() bool {
-	return c.status & 0b01000000 != 0
+	return c.status&overflowFlagMask != 0
 }
 
 func (c *Cpu) setDecimal() {
-	c.status |= 0b00001000
+	c.status |= decimalFlagMask
 }
 
 func (c *Cpu) clearDecimal() {
-	c.status &= 0b11110111
+	c.status &= ^decimalFlagMask
 }
 
 func (c *Cpu) testDecimal() bool {
-	return c.status & 0b00001000 != 0
+	return c.status&decimalFlagMask != 0
 }
 
 func (c *Cpu) setInterruptDisable() {
-	c.status |= 0b00000100
+	c.status |= interruptDisableFlagMask
 }
 
 func (c *Cpu) clearInterruptDisable() {
-	c.status &= 0b11111011
+	c.status &= ^interruptDisableFlagMask
 }
 
 func (c *Cpu) testInterruptDisable() bool {
-	return c.status & 0b00000100 != 0
+	return c.status&interruptDisableFlagMask != 0
 }
 
 func (c *Cpu) setZero() {
-	c.status |= 0b00000010
+	c.status |= zeroFlagMask
 }
 
 func (c *Cpu) clearZero() {
-	c.status &= 0b11111101
+	c.status &= ^zeroFlagMask
 }
 
 func (c *Cpu) testZero() bool {
-	return c.status & 0b00000010 != 0
+	return c.status&zeroFlagMask != 0
 }
 
 func (c *Cpu) setCarry() {
-	c.status |= 0b00000001
+	c.status |= carryFlagMask
 }
 
 func (c *Cpu) clearCarry() {
-	c.status &= 0b11111110
+	c.status &= ^carryFlagMask
 }
 
 func (c *Cpu) testCarry() bool {
-	return c.status & 0b00000001 != 0
+	return c.status&carryFlagMask != 0
 }
 
 // brk: force break
@@ -315,7 +322,7 @@ func bitwiseOrImmediate(c *Cpu) {
 	if c.a == 0 {
 		c.setZero()
 	}
-	if c.a&0x80 == 0x80 {
+	if c.a&0b10000000 != 0 {
 		c.setNegative()
 	}
 }
@@ -390,6 +397,14 @@ func pullProcessorStatus(c *Cpu) {
 
 // and: bitwise and (immediate)
 func bitwiseAndImmediate(c *Cpu) {
+	value := c.memory[c.pc+1]
+	c.a &= value
+	if c.a == 0 {
+		c.setZero()
+	}
+	if c.a&0b10000000 != 0 {
+		c.setNegative()
+	}
 }
 
 // rol: rotate left (accumulator)
