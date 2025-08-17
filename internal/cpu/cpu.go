@@ -212,12 +212,20 @@ func (c *Cpu) clearNegative() {
 	c.status &= 0b01111111
 }
 
+func (c *Cpu) testNegative() bool {
+	return c.status & 0b10000000 != 0
+}
+
 func (c *Cpu) setOverflow() {
 	c.status |= 0b01000000
 }
 
 func (c *Cpu) clearOverflow() {
 	c.status &= 0b10111111
+}
+
+func (c *Cpu) testOverflow() bool {
+	return c.status & 0b01000000 != 0
 }
 
 func (c *Cpu) setDecimal() {
@@ -228,12 +236,20 @@ func (c *Cpu) clearDecimal() {
 	c.status &= 0b11110111
 }
 
+func (c *Cpu) testDecimal() bool {
+	return c.status & 0b00001000 != 0
+}
+
 func (c *Cpu) setInterruptDisable() {
 	c.status |= 0b00000100
 }
 
 func (c *Cpu) clearInterruptDisable() {
 	c.status &= 0b11111011
+}
+
+func (c *Cpu) testInterruptDisable() bool {
+	return c.status & 0b00000100 != 0
 }
 
 func (c *Cpu) setZero() {
@@ -244,12 +260,20 @@ func (c *Cpu) clearZero() {
 	c.status &= 0b11111101
 }
 
+func (c *Cpu) testZero() bool {
+	return c.status & 0b00000010 != 0
+}
+
 func (c *Cpu) setCarry() {
 	c.status |= 0b00000001
 }
 
 func (c *Cpu) clearCarry() {
 	c.status &= 0b11111110
+}
+
+func (c *Cpu) testCarry() bool {
+	return c.status & 0b00000001 != 0
 }
 
 // brk: force break

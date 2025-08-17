@@ -22,3 +22,54 @@ func TestForceBreak(t *testing.T) {
 		t.Error("incorrect stack contents")
 	}
 }
+
+func TestBitwiseOrImmediate(t *testing.T) {
+	c := NewCpu()
+	c.a = 0b01010111
+	c.memory[0x00] = 0b01000010
+	c.memory[c.pc+1] = 0x00
+	bitwiseOrImmediate(c)
+	if c.a != 0b01010111 {
+		t.Error("incorrect accumulator value")
+	}
+	if c.testZero() {
+		t.Error("incorrect zero flag")
+	}
+	if c.testNegative() {
+		t.Error("incorrect negative flag")
+	}
+}
+
+func TestBitwiseOrImmediateZero(t *testing.T) {
+	c := NewCpu()
+	c.a = 0b00000000
+	c.memory[0x00] = 0b00000000
+	c.memory[c.pc+1] = 0x00
+	bitwiseOrImmediate(c)
+	if c.a != 0b00000000 {
+		t.Error("incorrect accumulator value")
+	}
+	if !c.testZero() {
+		t.Error("incorrect zero flag")
+	}
+	if c.testNegative() {
+		t.Error("incorrect negative flag")
+	}
+}
+
+func TestBitwiseOrImmediateNegative(t *testing.T) {
+	c := NewCpu()
+	c.a = 0b11010111
+	c.memory[0x00] = 0b01000010
+	c.memory[c.pc+1] = 0x00
+	bitwiseOrImmediate(c)
+	if c.a != 0b11010111 {
+		t.Error("incorrect accumulator value")
+	}
+	if c.testZero() {
+		t.Error("incorrect zero flag")
+	}
+	if !c.testNegative() {
+		t.Error("incorrect negative flag")
+	}
+}
