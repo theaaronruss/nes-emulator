@@ -11,6 +11,10 @@ type Cpu struct {
 	cycleDelay int
 }
 
+const (
+	stackBase uint16 = 0x0100
+)
+
 var ops [255]func(*Cpu)
 
 func init() {
@@ -188,15 +192,81 @@ func (c *Cpu) Cycle() {
 	ops[opcode](c)
 }
 
+func (c *Cpu) stackPush(data uint8) {
+	if c.s <= 0 {
+		panic("stack overflow")
+	}
+	address := stackBase + uint16(c.s)
+	c.memory[address] = data
+	c.s--
+}
+
+func (c *Cpu) stackPop() uint8 {
+	if c.s == 0xFF {
+		panic("stack underflow")
+	}
+	c.s++
+	address := stackBase + uint16(c.s)
+	return c.memory[address]
+}
+
+func (c *Cpu) setNegative() {
+	c.status |= 0b10000000
+}
+
+func (c *Cpu) clearNegative() {
+	c.status &= 0b01111111
+}
+
+func (c *Cpu) setOverflow() {
+	c.status |= 0b01000000
+}
+
+func (c *Cpu) clearOverflow() {
+	c.status &= 0b10111111
+}
+
+func (c *Cpu) setDecimal() {
+	c.status |= 0b00001000
+}
+
+func (c *Cpu) clearDecimal() {
+	c.status &= 0b11110111
+}
+
+func (c *Cpu) setInterruptDisable() {
+	c.status |= 0b00000100
+}
+
+func (c *Cpu) clearInterruptDisable() {
+	c.status &= 0b11111011
+}
+
+func (c *Cpu) setZero() {
+	c.status |= 0b00000010
+}
+
+func (c *Cpu) clearZero() {
+	c.status &= 0b11111101
+}
+
+func (c *Cpu) setCarry() {
+	c.status |= 0b00000001
+}
+
+func (c *Cpu) clearCarry() {
+	c.status &= 0b11111110
+}
+
 // brk: force break
 func forceBreak(c *Cpu) {
-	tempPc := c.pc + 2
-	pcByte1 := uint8(tempPc & 0xFF00 >> 8)
-	pcByte2 := uint8(tempPc & 0x00FF)
-	c.memory[c.s] = pcByte1
-	c.memory[c.s-1] = pcByte2
-	c.memory[c.s-2] = c.status | 0b00110000
-	c.status |= 0b00000100
+	c.pc += 2
+	pcByte1 := uint8(c.pc & 0xFF00 >> 8)
+	pcByte2 := uint8(c.pc & 0x00FF)
+	c.stackPush(pcByte1)
+	c.stackPush(pcByte2)
+	c.stackPush(c.status | 0b00110000)
+	c.setInterruptDisable()
 	c.s -= 3
 	c.pc = 0xFFFE
 	c.cycleDelay = 7
@@ -204,14 +274,17 @@ func forceBreak(c *Cpu) {
 
 // ora: bitwise or (x-indexed, indirect)
 func bitwiseOrIndirectX(c *Cpu) {
+	// TODO: implement
 }
 
 // ora: bitwise or (zero page)
 func bitwiseOrZeroPage(c *Cpu) {
+	// TODO: implement
 }
 
 // asl: arithmetic shift left (zero page)
 func arithmeticShiftLeftZeroPage(c *Cpu) {
+	// TODO: implement
 }
 
 // php: push processor status
@@ -223,10 +296,10 @@ func bitwiseOrImmediate(c *Cpu) {
 	value := c.memory[c.pc+1]
 	c.a |= value
 	if c.a == 0 {
-		c.status |= 0b00000010
+		c.setZero()
 	}
 	if c.a&0x80 == 0x80 {
-		c.status |= 0b10000000
+		c.setNegative()
 	}
 }
 
