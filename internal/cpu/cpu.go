@@ -1,9 +1,5 @@
 package cpu
 
-import (
-	"github.com/theaaronruss/nes-emulator/internal/opcodes"
-)
-
 const (
 	initialProgCounter uint16 = 0xFFFC
 	stackSize          uint8  = 0xFF
@@ -43,13 +39,9 @@ func NewCpu() *Cpu {
 }
 
 func (c *Cpu) Cycle() {
-	/* for testing */
-	c.memory[initialProgCounter] = 0x00
-
 	opcode := c.memory[c.progCounter]
-	opcodeInfo := opcodes.Ops[opcode]
-	switch opcodeInfo.Op {
-	case opcodes.OpBRK:
+	switch opcode {
+	case 0x00:
 		c.forceBreak()
 	}
 }
