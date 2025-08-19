@@ -35,10 +35,10 @@ func init() {
 	# ops[0x0D] = bitwiseOrAbsolute
 	# ops[0x0E] = arithmeticShiftLeftAbsolute
 	# ops[0x10] = branchIfPlusRelative
-	ops[0x11] = bitwiseOrIndirectY
-	ops[0x15] = bitwiseOrZeroPageX
-	ops[0x16] = arithmeticShiftLeftZeroPageX
-	ops[0x18] = clearCarry
+	# ops[0x11] = bitwiseOrIndirectY
+	# ops[0x15] = bitwiseOrZeroPageX
+	# ops[0x16] = arithmeticShiftLeftZeroPageX
+	# ops[0x18] = clearCarry
 	ops[0x19] = bitwiseOrAbsoluteY
 	ops[0x1D] = bitwiseOrAbsoluteX
 	ops[0x1E] = arithmeticShiftLeftAbsoluteX

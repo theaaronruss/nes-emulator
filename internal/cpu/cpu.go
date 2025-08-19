@@ -70,6 +70,19 @@ func (c *Cpu) Cycle() {
 		c.arithmeticShiftLeftMemory(address)
 	case 0x10:
 		c.branchIfPlus()
+	case 0x11:
+		address := c.getIndirectYAddress()
+		value := c.memory[address]
+		c.bitwiseOr(value)
+	case 0x15:
+		address := c.getZeroPageXAddress()
+		value := c.memory[address]
+		c.bitwiseOr(value)
+	case 0x16:
+		address := c.getZeroPageXAddress()
+		c.arithmeticShiftLeftMemory(uint16(address))
+	case 0x18:
+		c.status &= ^carryFlagMask
 	}
 }
 
@@ -101,10 +114,24 @@ func (c *Cpu) getIndirectXAddress() uint16 {
 	return address
 }
 
+func (c *Cpu) getIndirectYAddress() uint16 {
+	arg := c.memory[c.progCounter+1]
+	addrLow := c.memory[arg]
+	addrHigh := uint16(c.memory[arg+1]) << 8
+	address := addrHigh | uint16(addrLow)
+	address += uint16(c.yIndex)
+	return address
+}
+
 func (c *Cpu) getAbsoluteAddress() uint16 {
 	addrLow := c.memory[c.progCounter+1]
 	addrHigh := c.memory[c.progCounter+2]
 	return uint16(addrHigh)<<8 | uint16(addrLow)
+}
+
+func (c *Cpu) getZeroPageXAddress() uint8 {
+	arg := c.memory[c.progCounter+1]
+	return arg + c.xIndex
 }
 
 func (c *Cpu) forceBreak() {
