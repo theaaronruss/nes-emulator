@@ -40,6 +40,11 @@ func NewCpu() *Cpu {
 }
 
 func (c *Cpu) Cycle() {
+	c.accumulator = 0x55
+	c.memory[0x15] = 0xFF
+	c.memory[initialProgCounter] = 0x24
+	c.memory[initialProgCounter+1] = 0x15
+
 	opcode := c.memory[c.progCounter]
 	switch opcode {
 	case 0x00:
@@ -83,6 +88,26 @@ func (c *Cpu) Cycle() {
 		c.arithmeticShiftLeftMemory(uint16(address))
 	case 0x18:
 		c.status &= ^carryFlagMask
+	case 0x19:
+		address := c.getAbsoluteYAddress()
+		value := c.memory[address]
+		c.bitwiseOr(value)
+	case 0x1D:
+		address := c.getAbsoluteXAddress()
+		value := c.memory[address]
+		c.bitwiseOr(value)
+	case 0x1E:
+		address := c.getAbsoluteXAddress()
+		c.arithmeticShiftLeftMemory(address)
+	case 0x20:
+		c.jumpToSubroutine()
+	case 0x21:
+		address := c.getIndirectXAddress()
+		value := c.memory[address]
+		c.bitwiseAnd(value)
+	case 0x24:
+		address := c.memory[c.progCounter+1]
+		c.bitTest(uint16(address))
 	}
 }
 
@@ -129,6 +154,18 @@ func (c *Cpu) getAbsoluteAddress() uint16 {
 	return uint16(addrHigh)<<8 | uint16(addrLow)
 }
 
+func (c *Cpu) getAbsoluteXAddress() uint16 {
+	address := c.getAbsoluteAddress()
+	address += uint16(c.xIndex)
+	return address
+}
+
+func (c *Cpu) getAbsoluteYAddress() uint16 {
+	address := c.getAbsoluteAddress()
+	address += uint16(c.yIndex)
+	return address
+}
+
 func (c *Cpu) getZeroPageXAddress() uint8 {
 	arg := c.memory[c.progCounter+1]
 	return arg + c.xIndex
@@ -147,6 +184,16 @@ func (c *Cpu) forceBreak() {
 
 func (c *Cpu) bitwiseOr(value uint8) {
 	c.accumulator |= value
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	}
+}
+
+func (c *Cpu) bitwiseAnd(value uint8) {
+	c.accumulator &= value
 	if c.accumulator == 0 {
 		c.status |= zeroFlagMask
 	}
@@ -177,4 +224,29 @@ func (c *Cpu) branchIfPlus() {
 	}
 	arg := c.memory[c.progCounter+1]
 	c.progCounter += uint16(2 + int8(arg))
+}
+
+func (c *Cpu) jumpToSubroutine() {
+	addrLow := c.memory[c.progCounter+1]
+	addrHigh := uint16(c.memory[c.progCounter+2]) << 8
+	address := addrHigh | uint16(addrLow)
+	c.progCounter += 2
+	currProgCountLow := uint8(c.progCounter & 0x00FF)
+	currProgCountHigh := uint8(c.progCounter & 0xFF00 >> 8)
+	c.stackPush(currProgCountHigh)
+	c.stackPush(currProgCountLow)
+	c.progCounter = address
+}
+
+func (c *Cpu) bitTest(address uint16) {
+	result := c.accumulator & c.memory[address]
+	if result == 0 {
+		c.status |= zeroFlagMask
+	}
+	if result&0b01000000 > 0 {
+		c.status |= overflowFlagMask
+	}
+	if result&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	}
 }
