@@ -5,7 +5,8 @@ const (
 	stackSize          uint8  = 0xFF
 	stackBase          uint16 = 0x0100
 	initialStatus      uint8  = 0b00000100
-	memorySize         int    = 0xFFFF
+	memorySize         uint16 = 0xFFFF
+	irqVector          uint16 = 0xFFFE
 	negativeFlagMask   uint8  = 0b10000000
 	overflowFlagMask   uint8  = 0b01000000
 	unnamedFlagMask    uint8  = 0b00100000
@@ -43,6 +44,8 @@ func (c *Cpu) Cycle() {
 	switch opcode {
 	case 0x00:
 		c.forceBreak()
+	case 0x01:
+		c.bitwiseOrIndirectX()
 	}
 }
 
@@ -64,8 +67,25 @@ func (c *Cpu) stackPop() uint8 {
 	return c.memory[address]
 }
 
-func (c *Cpu) setInterruptDisable() {
+func (c *Cpu) getIndirectXAddress(arg uint8) uint16 {
+	zeroPageOffset := uint16(arg + c.xIndex)
+	zeroPageAddr := uint8(zeroPageOffset % 256)
+	lowByte := c.memory[zeroPageAddr]
+	highByte := uint16(c.memory[zeroPageAddr+1])
+	address := highByte<<8 | uint16(lowByte)
+	return address
+}
+
+func (c *Cpu) setNegativeFlag() {
+	c.status |= negativeFlagMask
+}
+
+func (c *Cpu) setInterruptDisableFlag() {
 	c.status |= interruptFlagMask
+}
+
+func (c *Cpu) setZeroFlag() {
+	c.status |= zeroFlagMask
 }
 
 func (c *Cpu) forceBreak() {
@@ -75,6 +95,18 @@ func (c *Cpu) forceBreak() {
 	c.stackPush(pcByte1)
 	c.stackPush(pcByte2)
 	c.stackPush(c.status | unnamedFlagMask | breakFlagMask)
-	c.setInterruptDisable()
-	c.progCounter = 0xFFFE
+	c.setInterruptDisableFlag()
+	c.progCounter = irqVector
+}
+
+func (c *Cpu) bitwiseOrIndirectX() {
+	arg := c.memory[c.progCounter+1]
+	address := c.getIndirectXAddress(arg)
+	c.accumulator |= c.memory[address]
+	if c.accumulator == 0 {
+		c.setZeroFlag()
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.setNegativeFlag()
+	}
 }
