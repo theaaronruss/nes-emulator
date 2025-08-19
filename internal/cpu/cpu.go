@@ -52,6 +52,8 @@ func (c *Cpu) Cycle() {
 	case 0x05:
 		arg := c.memory[c.progCounter+1]
 		c.bitwiseOr(arg)
+	case 0x06:
+		c.arithmeticShiftLeftZeroPage()
 	}
 }
 
@@ -101,4 +103,14 @@ func (c *Cpu) bitwiseOr(value uint8) {
 	if c.accumulator&0b10000000 > 0 {
 		c.status |= negativeFlagMask
 	}
+}
+
+func (c *Cpu) arithmeticShiftLeftZeroPage() {
+	address := c.memory[c.progCounter+1]
+	value := c.memory[address]
+	if value&0b10000000 > 0 {
+		c.status |= carryFlagMask
+	}
+	value <<= 1
+	c.memory[address] = value
 }

@@ -28,7 +28,7 @@ func init() {
 	# ops[0x00] = forceBreak
 	# ops[0x01] = bitwiseOrIndirectX
 	# ops[0x05] = bitwiseOrZeroPage
-	ops[0x06] = arithmeticShiftLeftZeroPage
+	# ops[0x06] = arithmeticShiftLeftZeroPage
 	ops[0x08] = pushProcessorStatus
 	ops[0x09] = bitwiseOrImmediate
 	ops[0x0A] = arithmeticShiftLeftAccumulator
