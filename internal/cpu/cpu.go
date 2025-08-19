@@ -1,7 +1,7 @@
 package cpu
 
 const (
-	initialProgCounter uint16 = 0xFFFC
+	initialProgCounter uint16 = 0x0800
 	stackSize          uint8  = 0xFF
 	stackBase          uint16 = 0x0100
 	initialStatus      uint8  = 0b00000100
@@ -45,15 +45,15 @@ func (c *Cpu) Cycle() {
 	case 0x00:
 		c.forceBreak()
 	case 0x01:
-		arg := c.memory[c.progCounter+1]
-		address := c.getIndirectXAddress(arg)
+		address := c.getIndirectXAddress()
 		value := c.memory[address]
 		c.bitwiseOr(value)
 	case 0x05:
 		arg := c.memory[c.progCounter+1]
 		c.bitwiseOr(arg)
 	case 0x06:
-		c.arithmeticShiftLeftZeroPage()
+		arg := c.memory[c.progCounter+1]
+		c.arithmeticShiftLeftMemory(uint16(arg))
 	case 0x08:
 		c.stackPush(c.status | unnamedFlagMask | breakFlagMask)
 	case 0x09:
@@ -62,11 +62,14 @@ func (c *Cpu) Cycle() {
 	case 0x0A:
 		c.arithmeticShiftLeftAccumulator()
 	case 0x0D:
-		addrLow := c.memory[c.progCounter+1]
-		addrHigh := c.memory[c.progCounter+2]
-		address := uint16(addrHigh)<<8 | uint16(addrLow)
+		address := c.getAbsoluteAddress()
 		value := c.memory[address]
 		c.bitwiseOr(value)
+	case 0x0E:
+		address := c.getAbsoluteAddress()
+		c.arithmeticShiftLeftMemory(address)
+	case 0x10:
+		c.branchIfPlus()
 	}
 }
 
@@ -88,13 +91,20 @@ func (c *Cpu) stackPop() uint8 {
 	return c.memory[address]
 }
 
-func (c *Cpu) getIndirectXAddress(arg uint8) uint16 {
+func (c *Cpu) getIndirectXAddress() uint16 {
+	arg := c.memory[c.progCounter+1]
 	zeroPageOffset := uint16(arg + c.xIndex)
 	zeroPageAddr := uint8(zeroPageOffset % 256)
 	lowByte := c.memory[zeroPageAddr]
 	highByte := uint16(c.memory[zeroPageAddr+1])
 	address := highByte<<8 | uint16(lowByte)
 	return address
+}
+
+func (c *Cpu) getAbsoluteAddress() uint16 {
+	addrLow := c.memory[c.progCounter+1]
+	addrHigh := c.memory[c.progCounter+2]
+	return uint16(addrHigh)<<8 | uint16(addrLow)
 }
 
 func (c *Cpu) forceBreak() {
@@ -125,12 +135,19 @@ func (c *Cpu) arithmeticShiftLeftAccumulator() {
 	c.accumulator <<= 1
 }
 
-func (c *Cpu) arithmeticShiftLeftZeroPage() {
-	address := c.memory[c.progCounter+1]
+func (c *Cpu) arithmeticShiftLeftMemory(address uint16) {
 	value := c.memory[address]
 	if value&0b10000000 > 0 {
 		c.status |= carryFlagMask
 	}
 	value <<= 1
 	c.memory[address] = value
+}
+
+func (c *Cpu) branchIfPlus() {
+	if c.status&negativeFlagMask > 0 {
+		return
+	}
+	arg := c.memory[c.progCounter+1]
+	c.progCounter += uint16(2 + int8(arg))
 }
