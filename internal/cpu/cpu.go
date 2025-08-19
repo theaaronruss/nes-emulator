@@ -45,7 +45,13 @@ func (c *Cpu) Cycle() {
 	case 0x00:
 		c.forceBreak()
 	case 0x01:
-		c.bitwiseOrIndirectX()
+		arg := c.memory[c.progCounter+1]
+		address := c.getIndirectXAddress(arg)
+		value := c.memory[address]
+		c.bitwiseOr(value)
+	case 0x05:
+		arg := c.memory[c.progCounter+1]
+		c.bitwiseOr(arg)
 	}
 }
 
@@ -76,18 +82,6 @@ func (c *Cpu) getIndirectXAddress(arg uint8) uint16 {
 	return address
 }
 
-func (c *Cpu) setNegativeFlag() {
-	c.status |= negativeFlagMask
-}
-
-func (c *Cpu) setInterruptDisableFlag() {
-	c.status |= interruptFlagMask
-}
-
-func (c *Cpu) setZeroFlag() {
-	c.status |= zeroFlagMask
-}
-
 func (c *Cpu) forceBreak() {
 	c.progCounter += 2
 	pcByte1 := uint8(c.progCounter & 0xFF00 >> 8)
@@ -95,18 +89,16 @@ func (c *Cpu) forceBreak() {
 	c.stackPush(pcByte1)
 	c.stackPush(pcByte2)
 	c.stackPush(c.status | unnamedFlagMask | breakFlagMask)
-	c.setInterruptDisableFlag()
+	c.status |= interruptFlagMask
 	c.progCounter = irqVector
 }
 
-func (c *Cpu) bitwiseOrIndirectX() {
-	arg := c.memory[c.progCounter+1]
-	address := c.getIndirectXAddress(arg)
-	c.accumulator |= c.memory[address]
+func (c *Cpu) bitwiseOr(value uint8) {
+	c.accumulator |= value
 	if c.accumulator == 0 {
-		c.setZeroFlag()
+		c.status |= zeroFlagMask
 	}
 	if c.accumulator&0b10000000 > 0 {
-		c.setNegativeFlag()
+		c.status |= negativeFlagMask
 	}
 }
