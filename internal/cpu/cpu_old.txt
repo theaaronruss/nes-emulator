@@ -30,9 +30,9 @@ func init() {
 	# ops[0x05] = bitwiseOrZeroPage
 	# ops[0x06] = arithmeticShiftLeftZeroPage
 	# ops[0x08] = pushProcessorStatus
-	ops[0x09] = bitwiseOrImmediate
-	ops[0x0A] = arithmeticShiftLeftAccumulator
-	ops[0x0D] = bitwiseOrAbsolute
+	# ops[0x09] = bitwiseOrImmediate
+	# ops[0x0A] = arithmeticShiftLeftAccumulator
+	# ops[0x0D] = bitwiseOrAbsolute
 	ops[0x0E] = arithmeticShiftLeftAbsolute
 	ops[0x10] = branchIfPlusRelative
 	ops[0x11] = bitwiseOrIndirectY

@@ -56,6 +56,17 @@ func (c *Cpu) Cycle() {
 		c.arithmeticShiftLeftZeroPage()
 	case 0x08:
 		c.stackPush(c.status | unnamedFlagMask | breakFlagMask)
+	case 0x09:
+		arg := c.memory[c.progCounter+1]
+		c.bitwiseOr(arg)
+	case 0x0A:
+		c.arithmeticShiftLeftAccumulator()
+	case 0x0D:
+		addrLow := c.memory[c.progCounter+1]
+		addrHigh := c.memory[c.progCounter+2]
+		address := uint16(addrHigh)<<8 | uint16(addrLow)
+		value := c.memory[address]
+		c.bitwiseOr(value)
 	}
 }
 
@@ -105,6 +116,13 @@ func (c *Cpu) bitwiseOr(value uint8) {
 	if c.accumulator&0b10000000 > 0 {
 		c.status |= negativeFlagMask
 	}
+}
+
+func (c *Cpu) arithmeticShiftLeftAccumulator() {
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= carryFlagMask
+	}
+	c.accumulator <<= 1
 }
 
 func (c *Cpu) arithmeticShiftLeftZeroPage() {
