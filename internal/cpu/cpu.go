@@ -54,6 +54,8 @@ func (c *Cpu) Cycle() {
 		c.bitwiseOr(arg)
 	case 0x06:
 		c.arithmeticShiftLeftZeroPage()
+	case 0x08:
+		c.stackPush(c.status | unnamedFlagMask | breakFlagMask)
 	}
 }
 
