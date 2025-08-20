@@ -201,6 +201,18 @@ func (c *Cpu) Cycle() {
 		address := c.getAbsoluteYAddress()
 		value := c.memory[address]
 		c.bitwiseXor(value)
+	case 0x5D:
+		address := c.getAbsoluteXAddress()
+		value := c.memory[address]
+		c.bitwiseXor(value)
+	case 0x5E:
+		address := c.getAbsoluteXAddress()
+		c.logicalShiftRightMemory(address)
+	case 0x60:
+		addrLow := c.stackPop()
+		addrHigh := uint16(c.stackPop())
+		address := addrHigh<<8 | uint16(addrLow)
+		c.progCounter = address
 	}
 }
 

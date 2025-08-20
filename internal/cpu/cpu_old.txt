@@ -77,9 +77,9 @@ func init() {
 	# ops[0x56] = logicalShiftRightZeroPageX
 	# ops[0x58] = clearInterruptDisable
 	# ops[0x59] = bitwiseXorAbsoluteY
-	ops[0x5D] = bitwiseXorAbsoluteX
-	ops[0x5E] = logicalShiftRightAbsoluteX
-	ops[0x60] = returnFromSubroutine
+	# ops[0x5D] = bitwiseXorAbsoluteX
+	# ops[0x5E] = logicalShiftRightAbsoluteX
+	# ops[0x60] = returnFromSubroutine
 	ops[0x61] = addWithCarryIndirectX
 	ops[0x65] = addWithCarryZeroPage
 	ops[0x66] = rotateRightZeroPage
