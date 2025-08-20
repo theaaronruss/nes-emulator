@@ -135,6 +135,30 @@ func (c *Cpu) Cycle() {
 		c.rotateLeftMemory(address)
 	case 0x30:
 		c.branchIfMinus()
+	case 0x31:
+		address := c.getIndirectYAddress()
+		value := c.memory[address]
+		c.bitwiseAnd(value)
+	case 0x35:
+		address := c.getZeroPageXAddress()
+		value := c.memory[address]
+		c.bitwiseAnd(value)
+	case 0x36:
+		address := c.getZeroPageXAddress()
+		c.rotateLeftMemory(uint16(address))
+	case 0x38:
+		c.status |= carryFlagMask
+	case 0x39:
+		address := c.getAbsoluteYAddress()
+		value := c.memory[address]
+		c.bitwiseAnd(value)
+	case 0x3D:
+		address := c.getAbsoluteXAddress()
+		value := c.memory[address]
+		c.bitwiseAnd(value)
+	case 0x3E:
+		address := c.getAbsoluteXAddress()
+		c.rotateLeftMemory(address)
 	}
 }
 
