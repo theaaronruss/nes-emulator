@@ -45,8 +45,8 @@ func init() {
 	# ops[0x20] = jumpToSubroutineAbsolute
 	# ops[0x21] = bitwiseAndIndirectX
 	# ops[0x24] = bitTestZeroPage
-	ops[0x25] = bitwiseAndZeroPage
-	ops[0x26] = rotateLeftZeroPage
+	# ops[0x25] = bitwiseAndZeroPage
+	# ops[0x26] = rotateLeftZeroPage
 	ops[0x28] = pullProcessorStatus
 	ops[0x29] = bitwiseAndImmediate
 	ops[0x2A] = rotateLeftAccumulator

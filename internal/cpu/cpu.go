@@ -40,10 +40,9 @@ func NewCpu() *Cpu {
 }
 
 func (c *Cpu) Cycle() {
-	c.accumulator = 0x55
-	c.memory[0x15] = 0xFF
-	c.memory[initialProgCounter] = 0x24
-	c.memory[initialProgCounter+1] = 0x15
+	// c.memory[0x0A] = 0xFE
+	c.memory[initialProgCounter] = 0x26
+	c.memory[initialProgCounter+1] = 0x0A
 
 	opcode := c.memory[c.progCounter]
 	switch opcode {
@@ -108,6 +107,12 @@ func (c *Cpu) Cycle() {
 	case 0x24:
 		address := c.memory[c.progCounter+1]
 		c.bitTest(uint16(address))
+	case 0x25:
+		address := c.memory[c.progCounter+1]
+		c.bitwiseAnd(address)
+	case 0x26:
+		address := c.memory[c.progCounter+1]
+		c.rotateLeftMemory(uint16(address))
 	}
 }
 
@@ -186,9 +191,13 @@ func (c *Cpu) bitwiseOr(value uint8) {
 	c.accumulator |= value
 	if c.accumulator == 0 {
 		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
 	}
 	if c.accumulator&0b10000000 > 0 {
 		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
 	}
 }
 
@@ -196,25 +205,53 @@ func (c *Cpu) bitwiseAnd(value uint8) {
 	c.accumulator &= value
 	if c.accumulator == 0 {
 		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
 	}
 	if c.accumulator&0b10000000 > 0 {
 		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
 	}
 }
 
 func (c *Cpu) arithmeticShiftLeftAccumulator() {
 	if c.accumulator&0b10000000 > 0 {
 		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
 	}
 	c.accumulator <<= 1
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
 }
 
 func (c *Cpu) arithmeticShiftLeftMemory(address uint16) {
 	value := c.memory[address]
 	if value&0b10000000 > 0 {
 		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
 	}
 	value <<= 1
+	if value == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if value&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
 	c.memory[address] = value
 }
 
@@ -242,11 +279,32 @@ func (c *Cpu) bitTest(address uint16) {
 	result := c.accumulator & c.memory[address]
 	if result == 0 {
 		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
 	}
 	if result&0b01000000 > 0 {
 		c.status |= overflowFlagMask
+	} else {
+		c.status &= ^overflowFlagMask
 	}
 	if result&0b10000000 > 0 {
 		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
 	}
+}
+
+func (c *Cpu) rotateLeftMemory(address uint16) {
+	value := c.memory[address]
+	carryFlag := c.status&carryFlagMask > 0
+	if value&0b10000000 > 0 {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	value <<= 1
+	if carryFlag {
+		value |= 0b00000001
+	}
+	c.memory[address] = value
 }
