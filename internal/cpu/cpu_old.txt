@@ -80,9 +80,9 @@ func init() {
 	# ops[0x5D] = bitwiseXorAbsoluteX
 	# ops[0x5E] = logicalShiftRightAbsoluteX
 	# ops[0x60] = returnFromSubroutine
-	ops[0x61] = addWithCarryIndirectX
-	ops[0x65] = addWithCarryZeroPage
-	ops[0x66] = rotateRightZeroPage
+	# ops[0x61] = addWithCarryIndirectX
+	# ops[0x65] = addWithCarryZeroPage
+	# ops[0x66] = rotateRightZeroPage
 	ops[0x68] = pullA
 	ops[0x69] = addWithCarryImmediate
 	ops[0x6A] = rotateRightAccumulator

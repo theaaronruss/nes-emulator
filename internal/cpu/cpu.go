@@ -213,6 +213,15 @@ func (c *Cpu) Cycle() {
 		addrHigh := uint16(c.stackPop())
 		address := addrHigh<<8 | uint16(addrLow)
 		c.progCounter = address
+	case 0x61:
+		address := c.getIndirectXAddress()
+		c.addWithCarry(address)
+	case 0x65:
+		address := c.memory[c.progCounter+1]
+		c.addWithCarry(uint16(address))
+	case 0x66:
+		address := c.memory[c.progCounter+1]
+		c.rotateRightMemory(uint16(address))
 	}
 }
 
@@ -468,6 +477,41 @@ func (c *Cpu) rotateLeftMemory(address uint16) {
 	if carryFlag {
 		value |= 0b00000001
 	}
+	if value == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if value&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+	c.memory[address] = value
+}
+
+func (c *Cpu) rotateRightMemory(address uint16) {
+	value := c.memory[address]
+	carryFlag := c.status&carryFlagMask > 0
+	if value&0b00000001 > 0 {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	value >>= 1
+	if carryFlag {
+		value |= 0b10000000
+	}
+	if value == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if value&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
 	c.memory[address] = value
 }
 
@@ -481,6 +525,16 @@ func (c *Cpu) rotateLeftAccumulator() {
 	c.accumulator <<= 1
 	if carryFlag {
 		c.accumulator |= 0b00000001
+	}
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
 	}
 }
 
@@ -497,4 +551,34 @@ func (c *Cpu) returnFromInterrupt() {
 	addrHigh := c.stackPop()
 	address := uint16(addrHigh)<<8 | uint16(addrLow)
 	c.progCounter = address
+}
+
+func (c *Cpu) addWithCarry(address uint16) {
+	oldAccumulator := c.accumulator
+	value := c.memory[address]
+	sum := uint16(c.accumulator) + uint16(value)
+	if c.status&carryFlagMask > 0 {
+		sum++
+	}
+	if sum > 0xFF {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	c.accumulator = uint8(sum)
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if (c.accumulator^oldAccumulator)&(c.accumulator^value)&0b10000000 > 0 {
+		c.status |= overflowFlagMask
+	} else {
+		c.status &= ^overflowFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
 }
