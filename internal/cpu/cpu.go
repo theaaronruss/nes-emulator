@@ -40,9 +40,9 @@ func NewCpu() *Cpu {
 }
 
 func (c *Cpu) Cycle() {
-	// c.memory[0x0A] = 0xFE
-	c.memory[initialProgCounter] = 0x26
-	c.memory[initialProgCounter+1] = 0x0A
+	c.memory[initialProgCounter] = 0x2C
+	c.memory[initialProgCounter+1] = 0x34
+	c.memory[initialProgCounter+2] = 0x12
 
 	opcode := c.memory[c.progCounter]
 	switch opcode {
@@ -113,6 +113,28 @@ func (c *Cpu) Cycle() {
 	case 0x26:
 		address := c.memory[c.progCounter+1]
 		c.rotateLeftMemory(uint16(address))
+	case 0x28:
+		flags := c.stackPop()
+		flags &= negativeFlagMask | overflowFlagMask | decimalFlagMask |
+			interruptFlagMask | zeroFlagMask | carryFlagMask
+		c.status = flags
+	case 0x29:
+		value := c.memory[c.progCounter+1]
+		c.bitwiseAnd(value)
+	case 0x2A:
+		c.rotateLeftAccumulator()
+	case 0x2C:
+		address := c.getAbsoluteAddress()
+		c.bitTest(address)
+	case 0x2D:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.bitwiseAnd(value)
+	case 0x2E:
+		address := c.getAbsoluteAddress()
+		c.rotateLeftMemory(address)
+	case 0x30:
+		c.branchIfMinus()
 	}
 }
 
@@ -259,8 +281,16 @@ func (c *Cpu) branchIfPlus() {
 	if c.status&negativeFlagMask > 0 {
 		return
 	}
-	arg := c.memory[c.progCounter+1]
-	c.progCounter += uint16(2 + int8(arg))
+	offset := c.memory[c.progCounter+1]
+	c.progCounter += uint16(2 + int8(offset))
+}
+
+func (c *Cpu) branchIfMinus() {
+	if c.status&negativeFlagMask == 0 {
+		return
+	}
+	offset := c.memory[c.progCounter+1]
+	c.progCounter += uint16(2 + int8(offset))
 }
 
 func (c *Cpu) jumpToSubroutine() {
@@ -307,4 +337,17 @@ func (c *Cpu) rotateLeftMemory(address uint16) {
 		value |= 0b00000001
 	}
 	c.memory[address] = value
+}
+
+func (c *Cpu) rotateLeftAccumulator() {
+	carryFlag := c.status&carryFlagMask > 0
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	c.accumulator <<= 1
+	if carryFlag {
+		c.accumulator |= 0b00000001
+	}
 }
