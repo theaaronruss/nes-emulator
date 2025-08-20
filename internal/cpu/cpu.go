@@ -40,10 +40,6 @@ func NewCpu() *Cpu {
 }
 
 func (c *Cpu) Cycle() {
-	c.memory[initialProgCounter] = 0x2C
-	c.memory[initialProgCounter+1] = 0x34
-	c.memory[initialProgCounter+2] = 0x12
-
 	opcode := c.memory[c.progCounter]
 	switch opcode {
 	case 0x00:
@@ -114,10 +110,7 @@ func (c *Cpu) Cycle() {
 		address := c.memory[c.progCounter+1]
 		c.rotateLeftMemory(uint16(address))
 	case 0x28:
-		flags := c.stackPop()
-		flags &= negativeFlagMask | overflowFlagMask | decimalFlagMask |
-			interruptFlagMask | zeroFlagMask | carryFlagMask
-		c.status = flags
+		c.popProcessorStatus()
 	case 0x29:
 		value := c.memory[c.progCounter+1]
 		c.bitwiseAnd(value)
@@ -159,6 +152,19 @@ func (c *Cpu) Cycle() {
 	case 0x3E:
 		address := c.getAbsoluteXAddress()
 		c.rotateLeftMemory(address)
+	case 0x40:
+		c.returnFromInterrupt()
+	case 0x41:
+		address := c.getIndirectXAddress()
+		value := c.memory[address]
+		c.bitwiseXor(value)
+	case 0x45:
+		address := c.memory[c.progCounter+1]
+		value := c.memory[address]
+		c.bitwiseXor(value)
+	case 0x46:
+		address := c.memory[c.progCounter+1]
+		c.logicalShiftRightMemory(uint16(address))
 	}
 }
 
@@ -261,6 +267,20 @@ func (c *Cpu) bitwiseAnd(value uint8) {
 	}
 }
 
+func (c *Cpu) bitwiseXor(value uint8) {
+	c.accumulator ^= value
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
 func (c *Cpu) arithmeticShiftLeftAccumulator() {
 	if c.accumulator&0b10000000 > 0 {
 		c.status |= carryFlagMask
@@ -298,6 +318,23 @@ func (c *Cpu) arithmeticShiftLeftMemory(address uint16) {
 	} else {
 		c.status &= ^negativeFlagMask
 	}
+	c.memory[address] = value
+}
+
+func (c *Cpu) logicalShiftRightMemory(address uint16) {
+	value := c.memory[address]
+	if value&0b00000001 > 0 {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	value >>= 1
+	if value == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	c.status &= ^negativeFlagMask
 	c.memory[address] = value
 }
 
@@ -374,4 +411,19 @@ func (c *Cpu) rotateLeftAccumulator() {
 	if carryFlag {
 		c.accumulator |= 0b00000001
 	}
+}
+
+func (c *Cpu) popProcessorStatus() {
+	flags := c.stackPop()
+	flags &= negativeFlagMask | overflowFlagMask | decimalFlagMask |
+		interruptFlagMask | zeroFlagMask | carryFlagMask
+	c.status = flags
+}
+
+func (c *Cpu) returnFromInterrupt() {
+	c.popProcessorStatus()
+	addrLow := c.stackPop()
+	addrHigh := c.stackPop()
+	address := uint16(addrHigh)<<8 | uint16(addrLow)
+	c.progCounter = address
 }

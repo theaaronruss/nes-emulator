@@ -61,10 +61,10 @@ func init() {
 	# ops[0x39] = bitwiseAndAbsoluteY
 	# ops[0x3D] = bitwiseAndAbsoluteX
 	# ops[0x3E] = rotateLeftAbsoluteX
-	ops[0x40] = returnFromInterrupt
-	ops[0x41] = bitwiseXorIndirectX
-	ops[0x45] = bitwiseXorZeroPage
-	ops[0x46] = logicalShiftRightZeroPage
+	# ops[0x40] = returnFromInterrupt
+	# ops[0x41] = bitwiseXorIndirectX
+	# ops[0x45] = bitwiseXorZeroPage
+	# ops[0x46] = logicalShiftRightZeroPage
 	ops[0x48] = pushA
 	ops[0x49] = bitwiseXorImmediate
 	ops[0x4A] = logicalShiftRightAccumulator
