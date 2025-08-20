@@ -165,6 +165,42 @@ func (c *Cpu) Cycle() {
 	case 0x46:
 		address := c.memory[c.progCounter+1]
 		c.logicalShiftRightMemory(uint16(address))
+	case 0x48:
+		c.stackPush(c.accumulator)
+	case 0x49:
+		arg := c.memory[c.progCounter+1]
+		c.bitwiseXor(arg)
+	case 0x4A:
+		c.logicalShiftRightAccumulator()
+	case 0x4C:
+		address := c.getAbsoluteAddress()
+		c.progCounter = address
+	case 0x4D:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.bitwiseOr(value)
+	case 0x4E:
+		address := c.getAbsoluteAddress()
+		c.logicalShiftRightMemory(address)
+	case 0x50:
+		c.branchIfOverflowClear()
+	case 0x51:
+		address := c.getIndirectYAddress()
+		value := c.memory[address]
+		c.bitwiseXor(value)
+	case 0x55:
+		address := c.getZeroPageXAddress()
+		value := c.memory[address]
+		c.bitwiseXor(value)
+	case 0x56:
+		address := c.getZeroPageXAddress()
+		c.logicalShiftRightMemory(uint16(address))
+	case 0x58:
+		c.status &= ^interruptFlagMask
+	case 0x59:
+		address := c.getAbsoluteYAddress()
+		value := c.memory[address]
+		c.bitwiseXor(value)
 	}
 }
 
@@ -321,6 +357,21 @@ func (c *Cpu) arithmeticShiftLeftMemory(address uint16) {
 	c.memory[address] = value
 }
 
+func (c *Cpu) logicalShiftRightAccumulator() {
+	if c.accumulator&0b00000001 > 0 {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	c.accumulator >>= 1
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	c.status &= ^negativeFlagMask
+}
+
 func (c *Cpu) logicalShiftRightMemory(address uint16) {
 	value := c.memory[address]
 	if value&0b00000001 > 0 {
@@ -343,7 +394,7 @@ func (c *Cpu) branchIfPlus() {
 		return
 	}
 	offset := c.memory[c.progCounter+1]
-	c.progCounter += uint16(2 + int8(offset))
+	c.progCounter += uint16(2 + offset)
 }
 
 func (c *Cpu) branchIfMinus() {
@@ -351,7 +402,15 @@ func (c *Cpu) branchIfMinus() {
 		return
 	}
 	offset := c.memory[c.progCounter+1]
-	c.progCounter += uint16(2 + int8(offset))
+	c.progCounter += uint16(2 + offset)
+}
+
+func (c *Cpu) branchIfOverflowClear() {
+	if c.status&overflowFlagMask != 0 {
+		return
+	}
+	offset := c.memory[c.progCounter+1]
+	c.progCounter += uint16(2 + offset)
 }
 
 func (c *Cpu) jumpToSubroutine() {
