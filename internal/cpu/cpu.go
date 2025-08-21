@@ -298,6 +298,51 @@ func (c *Cpu) Cycle() {
 	case 0x8E:
 		address := c.getAbsoluteAddress()
 		c.memory[address] = c.xIndex
+	case 0x90:
+		c.branchIfCarryClear()
+	case 0x91:
+		address := c.getIndirectYAddress()
+		c.memory[address] = c.accumulator
+	case 0x94:
+		address := c.getZeroPageXAddress()
+		c.memory[address] = c.yIndex
+	case 0x95:
+		address := c.getZeroPageXAddress()
+		c.memory[address] = c.accumulator
+	case 0x96:
+		address := c.getZeroPageYAddress()
+		c.memory[address] = c.xIndex
+	case 0x98:
+		c.transferYToA()
+	case 0x99:
+		address := c.getAbsoluteYAddress()
+		c.memory[address] = c.accumulator
+	case 0x9A:
+		c.stackPointer = c.xIndex
+	case 0x9D:
+		address := c.getAbsoluteXAddress()
+		c.memory[address] = c.accumulator
+	case 0xA0:
+		value := c.memory[c.progCounter+1]
+		c.loadY(value)
+	case 0xA1:
+		address := c.getIndirectXAddress()
+		value := c.memory[address]
+		c.loadA(value)
+	case 0xA2:
+		value := c.memory[c.progCounter+1]
+		c.loadX(value)
+	case 0xA4:
+		address := c.memory[c.progCounter+1]
+		c.yIndex = c.memory[address]
+	case 0xA5:
+		address := c.memory[c.progCounter+1]
+		c.accumulator = c.memory[address]
+	case 0xA6:
+		address := c.memory[c.progCounter+1]
+		c.xIndex = c.memory[address]
+	case 0xA8:
+		c.transferAToY()
 	}
 }
 
@@ -368,6 +413,11 @@ func (c *Cpu) getAbsoluteYAddress() uint16 {
 func (c *Cpu) getZeroPageXAddress() uint8 {
 	arg := c.memory[c.progCounter+1]
 	return arg + c.xIndex
+}
+
+func (c *Cpu) getZeroPageYAddress() uint8 {
+	arg := c.memory[c.progCounter+1]
+	return arg + c.yIndex
 }
 
 func (c *Cpu) forceBreak() {
@@ -521,6 +571,14 @@ func (c *Cpu) branchIfOverflowClear() {
 
 func (c *Cpu) branchIfOverflowSet() {
 	if c.status&overflowFlagMask == 0 {
+		return
+	}
+	offset := c.memory[c.progCounter+1]
+	c.progCounter += uint16(2 + offset)
+}
+
+func (c *Cpu) branchIfCarryClear() {
+	if c.status&carryFlagMask != 0 {
 		return
 	}
 	offset := c.memory[c.progCounter+1]
@@ -734,6 +792,76 @@ func (c *Cpu) transferXToA() {
 		c.status &= ^zeroFlagMask
 	}
 	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) transferYToA() {
+	c.accumulator = c.yIndex
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) transferAToY() {
+	c.yIndex = c.accumulator
+	if c.yIndex == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.yIndex&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) loadA(value uint8) {
+	c.accumulator = value
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) loadX(value uint8) {
+	c.xIndex = value
+	if c.xIndex == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.xIndex&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) loadY(value uint8) {
+	c.yIndex = value
+	if c.yIndex == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.yIndex&0b10000000 > 0 {
 		c.status |= negativeFlagMask
 	} else {
 		c.status &= ^negativeFlagMask
