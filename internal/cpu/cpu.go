@@ -40,6 +40,12 @@ func NewCpu() *Cpu {
 }
 
 func (c *Cpu) Cycle() {
+	c.memory[0x0900] = 0x34
+	c.memory[0x0901] = 0x12
+	c.memory[initialProgCounter] = 0x6C
+	c.memory[initialProgCounter+1] = 0x00
+	c.memory[initialProgCounter+2] = 0x09
+
 	opcode := c.memory[c.progCounter]
 	switch opcode {
 	case 0x00:
@@ -231,6 +237,31 @@ func (c *Cpu) Cycle() {
 		c.addWithCarry(value)
 	case 0x6A:
 		c.rotateRightAccumulator()
+	case 0x6C:
+		address := c.getIndirectAddress()
+		c.progCounter = address
+	case 0x6D:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.addWithCarry(value)
+	case 0x6E:
+		address := c.getAbsoluteAddress()
+		c.rotateRightMemory(address)
+	case 0x70:
+		c.branchIfOverflowSet()
+	case 0x71:
+		address := c.getIndirectYAddress()
+		value := c.memory[address]
+		c.addWithCarry(value)
+	case 0x75:
+		address := c.getZeroPageXAddress()
+		value := c.memory[address]
+		c.addWithCarry(value)
+	case 0x76:
+		address := c.getZeroPageXAddress()
+		c.rotateRightMemory(uint16(address))
+	case 0x78:
+		c.status |= interruptFlagMask
 	}
 }
 
@@ -250,6 +281,15 @@ func (c *Cpu) stackPop() uint8 {
 	c.stackPointer++
 	address := stackBase + uint16(c.stackPointer)
 	return c.memory[address]
+}
+
+func (c *Cpu) getIndirectAddress() uint16 {
+	pointerLow := c.memory[c.progCounter+1]
+	pointerHigh := uint16(c.memory[c.progCounter+2])
+	pointer := pointerHigh<<8 | uint16(pointerLow)
+	addrLow := c.memory[pointer]
+	addrHigh := uint16(c.memory[pointer+1])
+	return addrHigh<<8 | uint16(addrLow)
 }
 
 func (c *Cpu) getIndirectXAddress() uint16 {
@@ -437,6 +477,14 @@ func (c *Cpu) branchIfMinus() {
 
 func (c *Cpu) branchIfOverflowClear() {
 	if c.status&overflowFlagMask != 0 {
+		return
+	}
+	offset := c.memory[c.progCounter+1]
+	c.progCounter += uint16(2 + offset)
+}
+
+func (c *Cpu) branchIfOverflowSet() {
+	if c.status&overflowFlagMask == 0 {
 		return
 	}
 	offset := c.memory[c.progCounter+1]
