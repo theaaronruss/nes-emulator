@@ -465,6 +465,57 @@ func (c *Cpu) Cycle() {
 		address := c.memory[c.progCounter+1]
 		value := c.memory[address]
 		c.compareX(value)
+	case 0xE5:
+		address := c.memory[c.progCounter+1]
+		value := c.memory[address]
+		c.subtractWithCarry(value)
+	case 0xE6:
+		address := c.memory[c.progCounter+1]
+		c.incrementMemory(uint16(address))
+	case 0xE8:
+		c.incrementX()
+	case 0xE9:
+		value := c.memory[c.progCounter+1]
+		c.subtractWithCarry(value)
+	case 0xEA:
+		// no operation
+	case 0xEC:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.compareX(value)
+	case 0xED:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.subtractWithCarry(value)
+	case 0xEE:
+		address := c.getAbsoluteAddress()
+		c.incrementMemory(address)
+	case 0xF0:
+		c.branchIfEqual()
+	case 0xF1:
+		address := c.getIndirectYAddress()
+		value := c.memory[address]
+		c.subtractWithCarry(value)
+	case 0xF5:
+		address := c.memory[c.progCounter+1]
+		value := c.memory[address]
+		c.subtractWithCarry(value)
+	case 0xF6:
+		address := c.getZeroPageXAddress()
+		c.incrementMemory(uint16(address))
+	case 0xF8:
+		c.status |= decimalFlagMask
+	case 0xF9:
+		address := c.getAbsoluteYAddress()
+		value := c.memory[address]
+		c.subtractWithCarry(value)
+	case 0xFD:
+		address := c.getAbsoluteXAddress()
+		value := c.memory[address]
+		c.subtractWithCarry(value)
+	case 0xFE:
+		address := c.getAbsoluteXAddress()
+		c.incrementMemory(address)
 	}
 }
 
@@ -715,8 +766,16 @@ func (c *Cpu) branchIfCarrySet() {
 	c.progCounter += uint16(2 + offset)
 }
 
-func (c *Cpu) branchIfNotEqual() {
+func (c *Cpu) branchIfEqual() {
 	if c.status&zeroFlagMask != 0 {
+		return
+	}
+	offset := c.memory[c.progCounter+1]
+	c.progCounter += uint16(2 + offset)
+}
+
+func (c *Cpu) branchIfNotEqual() {
+	if c.status&zeroFlagMask == 0 {
 		return
 	}
 	offset := c.memory[c.progCounter+1]
@@ -956,6 +1015,20 @@ func (c *Cpu) decrementMemory(address uint16) {
 	c.memory[address] = value
 }
 
+func (c *Cpu) incrementX() {
+	c.xIndex++
+	if c.xIndex == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.xIndex&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
 func (c *Cpu) incrementY() {
 	c.yIndex++
 	if c.yIndex == 0 {
@@ -968,6 +1041,22 @@ func (c *Cpu) incrementY() {
 	} else {
 		c.status &= ^negativeFlagMask
 	}
+}
+
+func (c *Cpu) incrementMemory(address uint16) {
+	value := c.memory[address]
+	value++
+	if value == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if value&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+	c.memory[address] = value
 }
 
 func (c *Cpu) transferXToA() {
