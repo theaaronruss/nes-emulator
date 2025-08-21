@@ -386,6 +386,43 @@ func (c *Cpu) Cycle() {
 		c.loadA(value)
 	case 0xBA:
 		c.transferStackPointerToX()
+	case 0xBC:
+		address := c.getAbsoluteXAddress()
+		value := c.memory[address]
+		c.loadY(value)
+	case 0xBD:
+		address := c.getAbsoluteXAddress()
+		value := c.memory[address]
+		c.loadA(value)
+	case 0xBE:
+		address := c.getAbsoluteYAddress()
+		value := c.memory[address]
+		c.loadX(value)
+	case 0xC0:
+		value := c.memory[c.progCounter+1]
+		c.compareY(value)
+	case 0xC1:
+		address := c.getIndirectXAddress()
+		value := c.memory[address]
+		c.compareA(value)
+	case 0xC4:
+		address := c.memory[c.progCounter+1]
+		value := c.memory[address]
+		c.compareY(value)
+	case 0xC5:
+		address := c.memory[c.progCounter+1]
+		value := c.memory[address]
+		c.compareA(value)
+	case 0xC6:
+		address := c.memory[c.progCounter+1]
+		c.decrementMemory(uint16(address))
+	case 0xC8:
+		c.incrementY()
+	case 0xC9:
+		value := c.memory[c.progCounter+1]
+		c.compareA(value)
+	case 0xCA:
+		c.decrementX()
 	}
 }
 
@@ -821,8 +858,52 @@ func (c *Cpu) pullA() {
 	}
 }
 
+func (c *Cpu) decrementX() {
+	c.xIndex--
+	if c.xIndex == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.xIndex&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
 func (c *Cpu) decrementY() {
 	c.yIndex--
+	if c.yIndex == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.yIndex&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) decrementMemory(address uint16) {
+	value := c.memory[address]
+	value--
+	if value == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if value&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+	c.memory[address] = value
+}
+
+func (c *Cpu) incrementY() {
+	c.yIndex++
 	if c.yIndex == 0 {
 		c.status |= zeroFlagMask
 	} else {
@@ -941,6 +1022,63 @@ func (c *Cpu) loadY(value uint8) {
 		c.status &= ^zeroFlagMask
 	}
 	if c.yIndex&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) compareA(value uint8) {
+	diff := c.accumulator - value
+	if c.accumulator >= value {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	if diff == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if diff&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) compareX(value uint8) {
+	diff := c.xIndex - value
+	if c.xIndex >= value {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	if diff == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if diff&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) compareY(value uint8) {
+	diff := c.yIndex - value
+	if c.yIndex >= value {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	if diff == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if diff&0b10000000 > 0 {
 		c.status |= negativeFlagMask
 	} else {
 		c.status &= ^negativeFlagMask
