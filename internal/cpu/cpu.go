@@ -262,6 +262,42 @@ func (c *Cpu) Cycle() {
 		c.rotateRightMemory(uint16(address))
 	case 0x78:
 		c.status |= interruptFlagMask
+	case 0x79:
+		address := c.getAbsoluteYAddress()
+		value := c.memory[address]
+		c.addWithCarry(value)
+	case 0x7D:
+		address := c.getAbsoluteXAddress()
+		value := c.memory[address]
+		c.addWithCarry(value)
+	case 0x7E:
+		address := c.getAbsoluteXAddress()
+		c.rotateRightMemory(address)
+	case 0x81:
+		address := c.getIndirectXAddress()
+		c.memory[address] = c.accumulator
+	case 0x84:
+		address := c.memory[c.progCounter+1]
+		c.memory[address] = c.yIndex
+	case 0x85:
+		address := c.memory[c.progCounter+1]
+		c.memory[address] = c.accumulator
+	case 0x86:
+		address := c.memory[c.progCounter+1]
+		c.memory[address] = c.xIndex
+	case 0x88:
+		c.decrementY()
+	case 0x8A:
+		c.transferXToA()
+	case 0x8C:
+		address := c.getAbsoluteAddress()
+		c.memory[address] = c.yIndex
+	case 0x8D:
+		address := c.getAbsoluteAddress()
+		c.memory[address] = c.accumulator
+	case 0x8E:
+		address := c.getAbsoluteAddress()
+		c.memory[address] = c.xIndex
 	}
 }
 
@@ -670,6 +706,34 @@ func (c *Cpu) pullA() {
 		c.status &= ^zeroFlagMask
 	}
 	if accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) decrementY() {
+	c.yIndex--
+	if c.yIndex == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.yIndex&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) transferXToA() {
+	c.accumulator = c.xIndex
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
 		c.status |= negativeFlagMask
 	} else {
 		c.status &= ^negativeFlagMask
