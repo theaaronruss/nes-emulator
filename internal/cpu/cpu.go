@@ -215,13 +215,22 @@ func (c *Cpu) Cycle() {
 		c.progCounter = address
 	case 0x61:
 		address := c.getIndirectXAddress()
-		c.addWithCarry(address)
+		value := c.memory[address]
+		c.addWithCarry(value)
 	case 0x65:
 		address := c.memory[c.progCounter+1]
-		c.addWithCarry(uint16(address))
+		value := c.memory[address]
+		c.addWithCarry(value)
 	case 0x66:
 		address := c.memory[c.progCounter+1]
 		c.rotateRightMemory(uint16(address))
+	case 0x68:
+		c.pullA()
+	case 0x69:
+		value := c.memory[c.progCounter+1]
+		c.addWithCarry(value)
+	case 0x6A:
+		c.rotateRightAccumulator()
 	}
 }
 
@@ -538,6 +547,29 @@ func (c *Cpu) rotateLeftAccumulator() {
 	}
 }
 
+func (c *Cpu) rotateRightAccumulator() {
+	carryFlag := c.status&carryFlagMask > 0
+	if c.accumulator&0b00000001 > 0 {
+		c.status |= carryFlagMask
+	} else {
+		c.status &= ^carryFlagMask
+	}
+	c.accumulator >>= 1
+	if carryFlag {
+		c.accumulator |= 0b10000001
+	}
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
 func (c *Cpu) popProcessorStatus() {
 	flags := c.stackPop()
 	flags &= negativeFlagMask | overflowFlagMask | decimalFlagMask |
@@ -553,9 +585,8 @@ func (c *Cpu) returnFromInterrupt() {
 	c.progCounter = address
 }
 
-func (c *Cpu) addWithCarry(address uint16) {
+func (c *Cpu) addWithCarry(value uint8) {
 	oldAccumulator := c.accumulator
-	value := c.memory[address]
 	sum := uint16(c.accumulator) + uint16(value)
 	if c.status&carryFlagMask > 0 {
 		sum++
@@ -577,6 +608,20 @@ func (c *Cpu) addWithCarry(address uint16) {
 		c.status &= ^overflowFlagMask
 	}
 	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) pullA() {
+	accumulator := c.stackPop()
+	if accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if accumulator&0b10000000 > 0 {
 		c.status |= negativeFlagMask
 	} else {
 		c.status &= ^negativeFlagMask
