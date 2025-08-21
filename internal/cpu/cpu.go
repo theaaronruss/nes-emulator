@@ -40,12 +40,6 @@ func NewCpu() *Cpu {
 }
 
 func (c *Cpu) Cycle() {
-	c.memory[0x0900] = 0x34
-	c.memory[0x0901] = 0x12
-	c.memory[initialProgCounter] = 0x6C
-	c.memory[initialProgCounter+1] = 0x00
-	c.memory[initialProgCounter+2] = 0x09
-
 	opcode := c.memory[c.progCounter]
 	switch opcode {
 	case 0x00:
@@ -423,6 +417,54 @@ func (c *Cpu) Cycle() {
 		c.compareA(value)
 	case 0xCA:
 		c.decrementX()
+	case 0xCC:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.compareY(value)
+	case 0xCD:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.compareA(value)
+	case 0xCE:
+		address := c.getAbsoluteAddress()
+		c.decrementMemory(address)
+	case 0xD0:
+		c.branchIfNotEqual()
+	case 0xD1:
+		address := c.getIndirectYAddress()
+		value := c.memory[address]
+		c.compareA(value)
+	case 0xD5:
+		address := c.getZeroPageXAddress()
+		value := c.memory[address]
+		c.compareA(value)
+	case 0xD6:
+		address := c.getZeroPageXAddress()
+		c.decrementMemory(uint16(address))
+	case 0xD8:
+		c.status &= ^decimalFlagMask
+	case 0xD9:
+		address := c.getAbsoluteYAddress()
+		value := c.memory[address]
+		c.compareA(value)
+	case 0xDD:
+		address := c.getAbsoluteXAddress()
+		value := c.memory[address]
+		c.compareA(value)
+	case 0xDE:
+		address := c.getAbsoluteXAddress()
+		c.decrementMemory(address)
+	case 0xE0:
+		value := c.memory[c.progCounter+1]
+		c.compareX(value)
+	case 0xE1:
+		address := c.getIndirectXAddress()
+		value := c.memory[address]
+		c.subtractWithCarry(value)
+	case 0xE4:
+		address := c.memory[c.progCounter+1]
+		value := c.memory[address]
+		c.compareX(value)
 	}
 }
 
@@ -673,6 +715,14 @@ func (c *Cpu) branchIfCarrySet() {
 	c.progCounter += uint16(2 + offset)
 }
 
+func (c *Cpu) branchIfNotEqual() {
+	if c.status&zeroFlagMask != 0 {
+		return
+	}
+	offset := c.memory[c.progCounter+1]
+	c.progCounter += uint16(2 + offset)
+}
+
 func (c *Cpu) jumpToSubroutine() {
 	addrLow := c.memory[c.progCounter+1]
 	addrHigh := uint16(c.memory[c.progCounter+2]) << 8
@@ -842,6 +892,10 @@ func (c *Cpu) addWithCarry(value uint8) {
 	} else {
 		c.status &= ^negativeFlagMask
 	}
+}
+
+func (c *Cpu) subtractWithCarry(value uint8) {
+	// TODO: implement
 }
 
 func (c *Cpu) pullA() {
