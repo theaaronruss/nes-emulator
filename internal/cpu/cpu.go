@@ -343,6 +343,49 @@ func (c *Cpu) Cycle() {
 		c.xIndex = c.memory[address]
 	case 0xA8:
 		c.transferAToY()
+	case 0xA9:
+		value := c.memory[c.progCounter+1]
+		c.loadA(value)
+	case 0xAA:
+		c.transferAToX()
+	case 0xAC:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.loadY(value)
+	case 0xAD:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.loadA(value)
+	case 0xAE:
+		address := c.getAbsoluteAddress()
+		value := c.memory[address]
+		c.loadX(value)
+	case 0xB0:
+		c.branchIfCarrySet()
+	case 0xB1:
+		address := c.getIndirectYAddress()
+		value := c.memory[address]
+		c.loadA(value)
+	case 0xB4:
+		address := c.getZeroPageXAddress()
+		value := c.memory[address]
+		c.loadY(value)
+	case 0xB5:
+		address := c.getZeroPageXAddress()
+		value := c.memory[address]
+		c.loadA(value)
+	case 0xB6:
+		address := c.getZeroPageYAddress()
+		value := c.memory[address]
+		c.loadX(value)
+	case 0xB8:
+		c.status &= ^overflowFlagMask
+	case 0xB9:
+		address := c.getAbsoluteYAddress()
+		value := c.memory[address]
+		c.loadA(value)
+	case 0xBA:
+		c.transferStackPointerToX()
 	}
 }
 
@@ -585,6 +628,14 @@ func (c *Cpu) branchIfCarryClear() {
 	c.progCounter += uint16(2 + offset)
 }
 
+func (c *Cpu) branchIfCarrySet() {
+	if c.status&carryFlagMask == 0 {
+		return
+	}
+	offset := c.memory[c.progCounter+1]
+	c.progCounter += uint16(2 + offset)
+}
+
 func (c *Cpu) jumpToSubroutine() {
 	addrLow := c.memory[c.progCounter+1]
 	addrHigh := uint16(c.memory[c.progCounter+2]) << 8
@@ -812,6 +863,20 @@ func (c *Cpu) transferYToA() {
 	}
 }
 
+func (c *Cpu) transferAToX() {
+	c.xIndex = c.accumulator
+	if c.xIndex == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.xIndex&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
 func (c *Cpu) transferAToY() {
 	c.yIndex = c.accumulator
 	if c.yIndex == 0 {
@@ -820,6 +885,20 @@ func (c *Cpu) transferAToY() {
 		c.status &= ^zeroFlagMask
 	}
 	if c.yIndex&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
+}
+
+func (c *Cpu) transferStackPointerToX() {
+	c.xIndex = c.stackPointer
+	if c.xIndex == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if c.xIndex&0b10000000 > 0 {
 		c.status |= negativeFlagMask
 	} else {
 		c.status &= ^negativeFlagMask
