@@ -954,7 +954,32 @@ func (c *Cpu) addWithCarry(value uint8) {
 }
 
 func (c *Cpu) subtractWithCarry(value uint8) {
-	// TODO: implement
+	oldAccumulator := c.accumulator
+	diff := int16(c.accumulator) - int16(value)
+	if c.status&carryFlagMask == 0 {
+		diff--
+	}
+	if diff < 0x00 {
+		c.status &= ^carryFlagMask
+	} else {
+		c.status |= carryFlagMask
+	}
+	c.accumulator = uint8(diff)
+	if c.accumulator == 0 {
+		c.status |= zeroFlagMask
+	} else {
+		c.status &= ^zeroFlagMask
+	}
+	if (c.accumulator^oldAccumulator)&(c.accumulator^^value)&0b10000000 > 0 {
+		c.status |= overflowFlagMask
+	} else {
+		c.status &= ^overflowFlagMask
+	}
+	if c.accumulator&0b10000000 > 0 {
+		c.status |= negativeFlagMask
+	} else {
+		c.status &= ^negativeFlagMask
+	}
 }
 
 func (c *Cpu) pullA() {
