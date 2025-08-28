@@ -120,6 +120,7 @@ func (c *Cpu) bitwiseOr(instr *instruction) {
 	} else {
 		c.clearFlag(flagNegative)
 	}
+	c.pc += uint16(instr.bytes)
 }
 
 func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
@@ -150,4 +151,10 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 	} else {
 		c.mainBus.Write(address, value)
 	}
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) pushProcessorStatus(instr *instruction) {
+	c.stackPush(c.status | flagUnused | flagBreak)
+	c.pc += uint16(instr.bytes)
 }
