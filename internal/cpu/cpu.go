@@ -63,6 +63,10 @@ func (c *Cpu) clearFlag(flag uint8) {
 	c.status &= ^flag
 }
 
+func (c *Cpu) testFlag(flag uint8) bool {
+	return c.status&flag > 0
+}
+
 func (c *Cpu) stackPush(data uint8) {
 	address := stackBase + uint16(c.sp)
 	c.mainBus.Write(address, data)
@@ -77,18 +81,30 @@ func (c *Cpu) stackPop() uint8 {
 
 func (c *Cpu) getAddress(addrMode addressMode) uint16 {
 	switch addrMode {
+	case addrModeZeroPageX:
+		address := c.mainBus.Read(c.pc + 1)
+		return uint16(address + c.x)
 	case addrModeIndexIndirX:
 		zeroPageAddr := c.mainBus.Read(c.pc + 1)
 		zeroPageAddr += c.x
 		low := c.mainBus.Read(uint16(zeroPageAddr))
 		high := c.mainBus.Read(uint16(zeroPageAddr) + 1)
 		return uint16(high)<<8 | uint16(low)
+	case addrModeIndirIndexY:
+		zeroPageAddr := c.mainBus.Read(c.pc + 1)
+		low := c.mainBus.Read(uint16(zeroPageAddr))
+		high := c.mainBus.Read(uint16(zeroPageAddr) + 1)
+		address := uint16(high)<<8 | uint16(low)
+		return address + uint16(c.y)
 	case addrModeZeroPage:
 		return uint16(c.mainBus.Read(c.pc + 1))
 	case addrModeAbsolute:
 		low := c.mainBus.Read(c.pc + 1)
 		high := c.mainBus.Read(c.pc + 2)
 		return uint16(high)<<8 | uint16(low)
+	case addrModeRelative:
+		offset := int8(c.mainBus.Read(c.pc))
+		return c.pc + uint16(offset)
 	}
 	return 0x0000
 }
@@ -164,4 +180,14 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 func (c *Cpu) pushProcessorStatus(instr *instruction) {
 	c.stackPush(c.status | flagUnused | flagBreak)
 	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) branchIfPlus(instr *instruction) {
+	if c.testFlag(flagNegative) {
+		c.pc += uint16(instr.bytes)
+		return
+	}
+	c.pc++
+	address := c.getAddress(instr.addrMode)
+	c.pc = address + 1
 }
