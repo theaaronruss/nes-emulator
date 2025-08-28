@@ -128,6 +128,27 @@ func (c *Cpu) forceBreak(instr *instruction) {
 	c.pc = newPc
 }
 
+func (c *Cpu) bitTest(instr *instruction) {
+	address := c.getAddress(instr.addrMode)
+	value := c.mainBus.Read(address)
+	result := c.a & value
+	if result == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+	if value&0b01000000 > 0 {
+		c.setFlag(flagOverflow)
+	} else {
+		c.clearFlag(flagOverflow)
+	}
+	if value&0b10000000 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+}
+
 func (c *Cpu) bitwiseOr(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
@@ -137,6 +158,27 @@ func (c *Cpu) bitwiseOr(instr *instruction) {
 		value = c.mainBus.Read(address)
 	}
 	c.a |= value
+	if c.a == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+	if c.a&0b10000000 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) bitwiseAnd(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+	c.a &= value
 	if c.a == 0 {
 		c.setFlag(flagZero)
 	} else {
@@ -186,6 +228,16 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 func (c *Cpu) pushProcessorStatus(instr *instruction) {
 	c.stackPush(c.status | flagUnused | flagBreak)
 	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) jumpToSubroutine(instr *instruction) {
+	address := c.getAddress(instr.addrMode)
+	c.pc += 2
+	low := uint8(c.pc & 0x00FF)
+	high := uint8((c.pc & 0xFF00) >> 8)
+	c.stackPush(high)
+	c.stackPush(low)
+	c.pc = address
 }
 
 func (c *Cpu) branchIfPlus(instr *instruction) {

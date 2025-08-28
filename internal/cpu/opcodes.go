@@ -44,4 +44,7 @@ var opcodes = [256]instruction{
 	0x19: {"ORA", addrModeAbsoluteY, 3, 0, (*Cpu).bitwiseOr},
 	0x1D: {"ORA", addrModeAbsoluteX, 3, 0, (*Cpu).bitwiseOr},
 	0x1E: {"ASL", addrModeAbsoluteX, 3, 7, (*Cpu).arithmeticShiftLeft},
+	0x20: {"JSR", addrModeAbsolute, 3, 6, (*Cpu).jumpToSubroutine},
+	0x21: {"AND", addrModeIndexIndirX, 2, 6, (*Cpu).bitwiseAnd},
+	0x24: {"BIT", addrModeZeroPage, 2, 3, (*Cpu).bitTest},
 }
