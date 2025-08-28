@@ -47,4 +47,12 @@ var opcodes = [256]instruction{
 	0x20: {"JSR", addrModeAbsolute, 3, 6, (*Cpu).jumpToSubroutine},
 	0x21: {"AND", addrModeIndexIndirX, 2, 6, (*Cpu).bitwiseAnd},
 	0x24: {"BIT", addrModeZeroPage, 2, 3, (*Cpu).bitTest},
+	0x25: {"AND", addrModeZeroPage, 2, 3, (*Cpu).bitwiseAnd},
+	0x26: {"ROL", addrModeZeroPage, 2, 5, (*Cpu).rotateLeft},
+	0x28: {"PLP", addrModeImplied, 1, 4, (*Cpu).pullProcessorStatus},
+	0x29: {"AND", addrModeImmediate, 2, 2, (*Cpu).bitwiseAnd},
+	0x2A: {"ROL", addrModeAccumulator, 1, 2, (*Cpu).rotateLeft},
+	0x2C: {"BIT", addrModeAbsolute, 3, 4, (*Cpu).bitTest},
+	0x2D: {"AND", addrModeAbsolute, 3, 4, (*Cpu).bitwiseAnd},
+	0x2E: {"ROL", addrModeAbsolute, 3, 6, (*Cpu).rotateLeft},
 }

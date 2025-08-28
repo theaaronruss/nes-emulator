@@ -174,6 +174,7 @@ func (c *Cpu) bitwiseOr(instr *instruction) {
 func (c *Cpu) bitwiseAnd(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
+		value = c.mainBus.Read(c.pc + 1)
 	} else {
 		address := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
@@ -225,8 +226,51 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 	c.pc += uint16(instr.bytes)
 }
 
+func (c *Cpu) rotateLeft(instr *instruction) {
+	var value uint8
+	var address uint16
+	if instr.addrMode == addrModeAccumulator {
+		value = c.a
+	} else {
+		address = c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+	carryBit := value&0b10000000 > 0
+	if value&0b10000000 > 0 {
+		c.setFlag(flagCarry)
+	} else {
+		c.clearFlag(flagCarry)
+	}
+	value <<= 1
+	if carryBit {
+		value |= 0b00000001
+	}
+	if value == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+	if value&0b10000000 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+	if instr.addrMode == addrModeAccumulator {
+		c.a = value
+	} else {
+		c.mainBus.Write(address, value)
+	}
+	c.pc += uint16(instr.bytes)
+}
+
 func (c *Cpu) pushProcessorStatus(instr *instruction) {
 	c.stackPush(c.status | flagUnused | flagBreak)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) pullProcessorStatus(instr *instruction) {
+	flags := c.stackPop()
+	c.status = flags & 0b11001111
 	c.pc += uint16(instr.bytes)
 }
 
