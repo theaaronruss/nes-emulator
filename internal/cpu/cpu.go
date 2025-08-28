@@ -84,6 +84,12 @@ func (c *Cpu) getAddress(addrMode addressMode) uint16 {
 	case addrModeZeroPageX:
 		address := c.mainBus.Read(c.pc + 1)
 		return uint16(address + c.x)
+	case addrModeAbsoluteX:
+		address := c.getAddress(addrModeAbsolute)
+		return address + uint16(c.x)
+	case addrModeAbsoluteY:
+		address := c.getAddress(addrModeAbsolute)
+		return address + uint16(c.y)
 	case addrModeIndexIndirX:
 		zeroPageAddr := c.mainBus.Read(c.pc + 1)
 		zeroPageAddr += c.x
@@ -190,4 +196,9 @@ func (c *Cpu) branchIfPlus(instr *instruction) {
 	c.pc++
 	address := c.getAddress(instr.addrMode)
 	c.pc = address + 1
+}
+
+func (c *Cpu) clearCarry(instr *instruction) {
+	c.clearFlag(flagCarry)
+	c.pc += uint16(instr.bytes)
 }

@@ -39,4 +39,9 @@ var opcodes = [256]instruction{
 	0x10: {"BPL", addrModeRelative, 2, 0, (*Cpu).branchIfPlus},
 	0x11: {"ORA", addrModeIndirIndexY, 2, 0, (*Cpu).bitwiseOr},
 	0x15: {"ORA", addrModeZeroPageX, 2, 4, (*Cpu).bitwiseOr},
+	0x16: {"ASL", addrModeZeroPageX, 2, 6, (*Cpu).arithmeticShiftLeft},
+	0x18: {"CLC", addrModeImplied, 1, 2, (*Cpu).clearCarry},
+	0x19: {"ORA", addrModeAbsoluteY, 3, 0, (*Cpu).bitwiseOr},
+	0x1D: {"ORA", addrModeAbsoluteX, 3, 0, (*Cpu).bitwiseOr},
+	0x1E: {"ASL", addrModeAbsoluteX, 3, 7, (*Cpu).arithmeticShiftLeft},
 }
