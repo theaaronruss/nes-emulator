@@ -52,7 +52,7 @@ func (c *Cpu) Reset() {
 func (c *Cpu) ClockCycle() {
 	opcode := c.mainBus.Read(c.pc)
 	instruction := opcodes[opcode]
-	instruction.fn(c)
+	instruction.fn(c, &instruction)
 }
 
 func (c *Cpu) setFlag(flag uint8) {
@@ -75,7 +75,19 @@ func (c *Cpu) stackPop() uint8 {
 	return c.mainBus.Read(address)
 }
 
-func (c *Cpu) forceBreak() {
+func (c *Cpu) getAddress(addrMode addressMode) uint16 {
+	switch addrMode {
+	case addrModeIndexIndirX:
+		zeroPageAddr := c.mainBus.Read(c.pc + 1)
+		zeroPageAddr += c.x
+		low := c.mainBus.Read(uint16(zeroPageAddr))
+		high := c.mainBus.Read(uint16(zeroPageAddr) + 1)
+		return uint16(high)<<8 | uint16(low)
+	}
+	return 0x0000
+}
+
+func (c *Cpu) forceBreak(instr *instruction) {
 	c.pc += 2
 	oldPcLow := uint8(c.pc & 0x00FF)
 	oldPcHigh := uint8(c.pc & 0xFF00 >> 8)
@@ -86,4 +98,24 @@ func (c *Cpu) forceBreak() {
 	newPcHigh := c.mainBus.Read(irqVector + 1)
 	newPc := uint16(newPcHigh)<<8 | uint16(newPcLow)
 	c.pc = newPc
+}
+
+func (c *Cpu) bitwiseOr(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+	c.a |= value
+	if c.a == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+	if c.a&0b10000000 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
 }
