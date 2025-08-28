@@ -105,6 +105,7 @@ func (c *Cpu) forceBreak(instr *instruction) {
 func (c *Cpu) bitwiseOr(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
+		value = c.mainBus.Read(c.pc + 1)
 	} else {
 		address := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
