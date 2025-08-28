@@ -55,4 +55,12 @@ var opcodes = [256]instruction{
 	0x2C: {"BIT", addrModeAbsolute, 3, 4, (*Cpu).bitTest},
 	0x2D: {"AND", addrModeAbsolute, 3, 4, (*Cpu).bitwiseAnd},
 	0x2E: {"ROL", addrModeAbsolute, 3, 6, (*Cpu).rotateLeft},
+	0x30: {"BMI", addrModeRelative, 2, 0, (*Cpu).branchIfMinus},
+	0x31: {"AND", addrModeIndirIndexY, 2, 0, (*Cpu).bitwiseAnd},
+	0x35: {"AND", addrModeZeroPageX, 2, 4, (*Cpu).bitwiseAnd},
+	0x36: {"ROL", addrModeZeroPageX, 2, 6, (*Cpu).rotateLeft},
+	0x38: {"SEC", addrModeImplied, 1, 2, (*Cpu).setCarry},
+	0x39: {"AND", addrModeAbsoluteY, 3, 0, (*Cpu).bitwiseAnd},
+	0x3D: {"AND", addrModeAbsoluteX, 3, 0, (*Cpu).bitwiseAnd},
+	0x3E: {"ROL", addrModeAbsoluteX, 3, 7, (*Cpu).rotateLeft},
 }
