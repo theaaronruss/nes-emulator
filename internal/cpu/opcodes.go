@@ -34,4 +34,6 @@ var opcodes = [256]instruction{
 	0x08: {"PHP", addrModeImplied, 1, 3, (*Cpu).pushProcessorStatus},
 	0x09: {"ORA", addrModeImmediate, 2, 2, (*Cpu).bitwiseOr},
 	0x0A: {"ASL", addrModeAccumulator, 1, 2, (*Cpu).arithmeticShiftLeft},
+	0x0D: {"ORA", addrModeAbsolute, 3, 4, (*Cpu).bitwiseOr},
+	0x0E: {"ASL", addrModeAbsolute, 3, 6, (*Cpu).arithmeticShiftLeft},
 }

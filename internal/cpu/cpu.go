@@ -85,6 +85,10 @@ func (c *Cpu) getAddress(addrMode addressMode) uint16 {
 		return uint16(high)<<8 | uint16(low)
 	case addrModeZeroPage:
 		return uint16(c.mainBus.Read(c.pc + 1))
+	case addrModeAbsolute:
+		low := c.mainBus.Read(c.pc + 1)
+		high := c.mainBus.Read(c.pc + 2)
+		return uint16(high)<<8 | uint16(low)
 	}
 	return 0x0000
 }
