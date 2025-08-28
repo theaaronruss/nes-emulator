@@ -128,6 +128,7 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 	var value uint8
 	var address uint16
 	if instr.addrMode == addrModeAccumulator {
+		value = c.a
 	} else {
 		address = c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
@@ -149,6 +150,7 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 		c.clearFlag(flagNegative)
 	}
 	if instr.addrMode == addrModeAccumulator {
+		c.a = value
 	} else {
 		c.mainBus.Write(address, value)
 	}
