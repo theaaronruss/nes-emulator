@@ -121,3 +121,33 @@ func (c *Cpu) bitwiseOr(instr *instruction) {
 		c.clearFlag(flagNegative)
 	}
 }
+
+func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
+	var value uint8
+	var address uint16
+	if instr.addrMode == addrModeAccumulator {
+	} else {
+		address = c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+	if value&0b10000000 > 0 {
+		c.setFlag(flagCarry)
+	} else {
+		c.clearFlag(flagCarry)
+	}
+	value <<= 1
+	if value == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+	if value&0b10000000 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+	if instr.addrMode == addrModeAccumulator {
+	} else {
+		c.mainBus.Write(address, value)
+	}
+}
