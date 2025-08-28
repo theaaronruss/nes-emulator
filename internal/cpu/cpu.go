@@ -4,6 +4,24 @@ import (
 	"github.com/theaaronruss/nes-emulator/internal/bus"
 )
 
+const (
+	resetVector         = 0xFFFC
+	irqVector           = 0xFFFE
+	stackBase           = 0x0100
+	initialStackPointer = 0xFD
+)
+
+const (
+	flagCarry      uint8 = 1 << iota
+	flagZero             = 1 << iota
+	flagIntDisable       = 1 << iota
+	flagDecimal          = 1 << iota
+	flagBreak            = 1 << iota
+	flagUnused           = 1 << iota
+	flagOverflow         = 1 << iota
+	flagNegative         = 1 << iota
+)
+
 type Cpu struct {
 	a      uint8
 	x      uint8
@@ -16,13 +34,56 @@ type Cpu struct {
 }
 
 func NewCpu(mainBus *bus.Bus) *Cpu {
-	return &Cpu{
+	cpu := &Cpu{
 		mainBus: mainBus,
 	}
+	cpu.Reset()
+	return cpu
+}
+
+func (c *Cpu) Reset() {
+	c.sp = initialStackPointer
+	pcLow := c.mainBus.Read(resetVector)
+	pcHigh := c.mainBus.Read(resetVector + 1)
+	c.pc = uint16(pcHigh)<<8 | uint16(pcLow)
+	c.setFlag(flagIntDisable)
 }
 
 func (c *Cpu) ClockCycle() {
-	// TODO: read instruction at pc
-	// TODO: increment program counter
-	// TODO: execute instruction
+	opcode := c.mainBus.Read(c.pc)
+	instruction := opcodes[opcode]
+	instruction.fn(c)
+}
+
+func (c *Cpu) setFlag(flag uint8) {
+	c.status |= flag
+}
+
+func (c *Cpu) clearFlag(flag uint8) {
+	c.status &= ^flag
+}
+
+func (c *Cpu) stackPush(data uint8) {
+	address := stackBase + uint16(c.sp)
+	c.mainBus.Write(address, data)
+	c.sp--
+}
+
+func (c *Cpu) stackPop() uint8 {
+	c.sp++
+	address := stackBase + uint16(c.sp)
+	return c.mainBus.Read(address)
+}
+
+func (c *Cpu) forceBreak() {
+	c.pc += 2
+	oldPcLow := uint8(c.pc & 0x00FF)
+	oldPcHigh := uint8(c.pc & 0xFF00 >> 8)
+	c.stackPush(oldPcHigh)
+	c.stackPush(oldPcLow)
+	c.stackPush(c.status | flagUnused | flagBreak)
+	newPcLow := c.mainBus.Read(irqVector)
+	newPcHigh := c.mainBus.Read(irqVector + 1)
+	newPc := uint16(newPcHigh)<<8 | uint16(newPcLow)
+	c.pc = newPc
 }
