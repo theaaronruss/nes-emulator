@@ -353,6 +353,13 @@ func (c *Cpu) jumpToSubroutine(instr *instruction) {
 	c.pc = address
 }
 
+func (c *Cpu) returnFromSubroutine(instr *instruction) {
+	low := c.stackPop()
+	high := c.stackPop()
+	address := uint16(high)<<8 | uint16(low)
+	c.pc = address + 1
+}
+
 func (c *Cpu) branchIfPlus(instr *instruction) {
 	if c.testFlag(flagNegative) {
 		c.pc += uint16(instr.bytes)
@@ -373,6 +380,16 @@ func (c *Cpu) branchIfMinus(instr *instruction) {
 	c.pc = address + 1
 }
 
+func (c *Cpu) branchIfOverflowClear(instr *instruction) {
+	if c.testFlag(flagOverflow) {
+		c.pc += uint16(instr.bytes)
+		return
+	}
+	c.pc++
+	address := c.getAddress(instr.addrMode)
+	c.pc = address + 1
+}
+
 func (c *Cpu) setCarry(instr *instruction) {
 	c.setFlag(flagCarry)
 	c.pc += uint16(instr.bytes)
@@ -380,5 +397,10 @@ func (c *Cpu) setCarry(instr *instruction) {
 
 func (c *Cpu) clearCarry(instr *instruction) {
 	c.clearFlag(flagCarry)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) clearInterruptDisable(instr *instruction) {
+	c.clearFlag(flagIntDisable)
 	c.pc += uint16(instr.bytes)
 }

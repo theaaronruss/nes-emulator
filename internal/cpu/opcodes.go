@@ -73,4 +73,13 @@ var opcodes = [256]instruction{
 	0x4C: {"JMP", addrModeAbsolute, 3, 3, (*Cpu).jump},
 	0x4D: {"EOR", addrModeAbsolute, 3, 4, (*Cpu).bitwiseXor},
 	0x4E: {"LSR", addrModeAbsolute, 3, 6, (*Cpu).logicalShiftRight},
+	0x50: {"BVC", addrModeRelative, 2, 0, (*Cpu).branchIfOverflowClear},
+	0x51: {"EOR", addrModeIndirIndexY, 2, 0, (*Cpu).bitwiseXor},
+	0x55: {"EOR", addrModeZeroPageX, 2, 4, (*Cpu).bitwiseXor},
+	0x56: {"LSR", addrModeZeroPageX, 2, 6, (*Cpu).logicalShiftRight},
+	0x58: {"CLI", addrModeImplied, 1, 2, (*Cpu).clearInterruptDisable},
+	0x59: {"EOR", addrModeAbsoluteY, 3, 0, (*Cpu).bitwiseXor},
+	0x5D: {"EOR", addrModeAbsoluteX, 3, 0, (*Cpu).bitwiseXor},
+	0x5E: {"LSR", addrModeAbsoluteX, 3, 7, (*Cpu).logicalShiftRight},
+	0x60: {"RTS", addrModeImplied, 1, 6, (*Cpu).returnFromSubroutine},
 }
