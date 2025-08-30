@@ -151,4 +151,12 @@ var opcodes = [256]instruction{
 	0xCC: {"CPY", addrModeAbsolute, 3, 4, (*Cpu).compareY},
 	0xCD: {"CMP", addrModeAbsolute, 3, 4, (*Cpu).compareA},
 	0xCE: {"DEC", addrModeAbsolute, 3, 6, (*Cpu).decrementMemory},
+	0xD0: {"BNE", addrModeRelative, 2, 0, (*Cpu).branchIfNotEqual},
+	0xD1: {"CMP", addrModeIndirIndexY, 2, 0, (*Cpu).compareA},
+	0xD5: {"CMP", addrModeZeroPageX, 2, 4, (*Cpu).compareA},
+	0xD6: {"DEC", addrModeZeroPageX, 2, 6, (*Cpu).decrementMemory},
+	0xD8: {"CLD", addrModeImplied, 1, 2, (*Cpu).clearDecimal},
+	0xD9: {"CMP", addrModeAbsoluteY, 3, 0, (*Cpu).compareA},
+	0xDD: {"CMP", addrModeAbsoluteX, 3, 0, (*Cpu).compareA},
+	0xDE: {"DEC", addrModeAbsoluteX, 3, 7, (*Cpu).decrementMemory},
 }
