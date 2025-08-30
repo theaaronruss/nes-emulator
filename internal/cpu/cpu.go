@@ -588,6 +588,106 @@ func (c *Cpu) transferStackPointerToX(instr *instruction) {
 	c.pc += uint16(instr.bytes)
 }
 
+func (c *Cpu) compareA(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = c.mainBus.Read(c.pc + 1)
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+
+	if c.a >= value {
+		c.setFlag(flagCarry)
+	} else {
+		c.clearFlag(flagCarry)
+	}
+
+	if c.a == value {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	result := c.a - value
+
+	if result&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) compareY(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = c.mainBus.Read(c.pc + 1)
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+
+	if c.y >= value {
+		c.setFlag(flagCarry)
+	} else {
+		c.clearFlag(flagCarry)
+	}
+
+	if c.y == value {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	result := c.y - value
+
+	if result&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) incrementY(instr *instruction) {
+	c.y++
+
+	if c.y == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.y&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) decrementX(instr *instruction) {
+	c.x--
+
+	if c.x == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.x&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
 func (c *Cpu) decrementY(instr *instruction) {
 	c.y--
 
@@ -598,6 +698,27 @@ func (c *Cpu) decrementY(instr *instruction) {
 	}
 
 	if c.y&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) decrementMemory(instr *instruction) {
+	address := c.getAddress(instr.addrMode)
+	value := c.mainBus.Read(address)
+	value--
+	c.mainBus.Write(address, value)
+
+	if value == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
 		c.setFlag(flagNegative)
 	} else {
 		c.clearFlag(flagNegative)
