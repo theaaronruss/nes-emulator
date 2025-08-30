@@ -31,7 +31,7 @@ type Cpu struct {
 	status uint8
 
 	mainBus    *bus.Bus
-	clockDelay int
+	cycleDelay int
 }
 
 func NewCpu(mainBus *bus.Bus) *Cpu {
@@ -48,18 +48,18 @@ func (c *Cpu) Reset() {
 	pcHigh := c.mainBus.Read(resetVector + 1)
 	c.pc = uint16(pcHigh)<<8 | uint16(pcLow)
 	c.setFlag(flagIntDisable)
-	c.clockDelay = 0
+	c.cycleDelay = 0
 }
 
 func (c *Cpu) ClockCycle() {
-	if c.clockDelay <= 0 {
+	if c.cycleDelay <= 0 {
 		opcode := c.mainBus.Read(c.pc)
 		instruction := opcodes[opcode]
 		instruction.fn(c, &instruction)
-		c.clockDelay = instruction.cycles
+		c.cycleDelay += instruction.cycles
 		return
 	}
-	c.clockDelay--
+	c.cycleDelay--
 }
 
 func (c *Cpu) setFlag(flag uint8) {
@@ -86,48 +86,63 @@ func (c *Cpu) stackPop() uint8 {
 	return c.mainBus.Read(address)
 }
 
-func (c *Cpu) getAddress(addrMode addressMode) uint16 {
+func (c *Cpu) getAddress(addrMode addressMode) (uint16, bool) {
 	switch addrMode {
 	case addrModeZeroPageX:
 		address := c.mainBus.Read(c.pc + 1)
-		return uint16(address + c.x)
+		return uint16(address + c.x), false
 	case addrModeZeroPageY:
 		address := c.mainBus.Read(c.pc + 1)
-		return uint16(address + c.y)
+		return uint16(address + c.y), false
 	case addrModeAbsoluteX:
-		address := c.getAddress(addrModeAbsolute)
-		return address + uint16(c.x)
+		baseAddress, _ := c.getAddress(addrModeAbsolute)
+		address := baseAddress + uint16(c.x)
+		if baseAddress&0xFF00 == address&0xFF00 {
+			return address, false
+		} else {
+			return address, true
+		}
 	case addrModeAbsoluteY:
-		address := c.getAddress(addrModeAbsolute)
-		return address + uint16(c.y)
+		baseAddress, _ := c.getAddress(addrModeAbsolute)
+		address := baseAddress + uint16(c.y)
+		if baseAddress&0xFF00 == address&0xFF00 {
+			return address, false
+		} else {
+			return address, true
+		}
 	case addrModeIndexIndirX:
 		zeroPageAddr := c.mainBus.Read(c.pc + 1)
 		zeroPageAddr += c.x
 		low := c.mainBus.Read(uint16(zeroPageAddr))
 		high := c.mainBus.Read(uint16(zeroPageAddr) + 1)
-		return uint16(high)<<8 | uint16(low)
+		return uint16(high)<<8 | uint16(low), false
 	case addrModeIndirIndexY:
 		zeroPageAddr := c.mainBus.Read(c.pc + 1)
 		low := c.mainBus.Read(uint16(zeroPageAddr))
 		high := c.mainBus.Read(uint16(zeroPageAddr) + 1)
-		address := uint16(high)<<8 | uint16(low)
-		return address + uint16(c.y)
+		baseAddress := uint16(high)<<8 | uint16(low)
+		address := baseAddress + uint16(c.y)
+		if baseAddress&0xFF00 == address&0xFF00 {
+			return address, false
+		} else {
+			return address, true
+		}
 	case addrModeZeroPage:
-		return uint16(c.mainBus.Read(c.pc + 1))
+		return uint16(c.mainBus.Read(c.pc + 1)), false
 	case addrModeAbsolute:
 		low := c.mainBus.Read(c.pc + 1)
 		high := c.mainBus.Read(c.pc + 2)
-		return uint16(high)<<8 | uint16(low)
+		return uint16(high)<<8 | uint16(low), false
 	case addrModeRelative:
 		offset := int8(c.mainBus.Read(c.pc))
-		return c.pc + uint16(offset)
+		return c.pc + uint16(offset), false
 	case addrModeIndirect:
-		address := c.getAddress(addrModeAbsolute)
+		address, _ := c.getAddress(addrModeAbsolute)
 		low := c.mainBus.Read(address)
 		high := c.mainBus.Read(address + 1)
-		return uint16(high)<<8 | uint16(low)
+		return uint16(high)<<8 | uint16(low), false
 	}
-	return 0x0000
+	return 0x0000, false
 }
 
 func (c *Cpu) forceBreak(instr *instruction) {
@@ -152,7 +167,7 @@ func (c *Cpu) returnFromInterrupt(instr *instruction) {
 }
 
 func (c *Cpu) bitTest(instr *instruction) {
-	address := c.getAddress(instr.addrMode)
+	address, _ := c.getAddress(instr.addrMode)
 	value := c.mainBus.Read(address)
 	result := c.a & value
 	if result == 0 {
@@ -177,8 +192,13 @@ func (c *Cpu) bitwiseOr(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, pageCrossed := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
+		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
+			instr.addrMode == addrModeAbsoluteY ||
+			instr.addrMode == addrModeIndirIndexY) {
+			c.cycleDelay++
+		}
 	}
 	c.a |= value
 	if c.a == 0 {
@@ -199,8 +219,13 @@ func (c *Cpu) bitwiseXor(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, pageCrossed := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
+		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
+			instr.addrMode == addrModeAbsoluteY ||
+			instr.addrMode == addrModeIndirIndexY) {
+			c.cycleDelay++
+		}
 	}
 	c.a ^= value
 	if c.a == 0 {
@@ -221,8 +246,13 @@ func (c *Cpu) bitwiseAnd(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, pageCrossed := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
+		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
+			instr.addrMode == addrModeAbsoluteY ||
+			instr.addrMode == addrModeIndirIndexY) {
+			c.cycleDelay++
+		}
 	}
 	c.a &= value
 	if c.a == 0 {
@@ -244,7 +274,7 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 	if instr.addrMode == addrModeAccumulator {
 		value = c.a
 	} else {
-		address = c.getAddress(instr.addrMode)
+		address, _ = c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
 	}
 	if value&0x80 > 0 {
@@ -277,7 +307,7 @@ func (c *Cpu) logicalShiftRight(instr *instruction) {
 	if instr.addrMode == addrModeAccumulator {
 		value = c.a
 	} else {
-		address = c.getAddress(instr.addrMode)
+		address, _ = c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
 	}
 	if value&0x01 > 0 {
@@ -306,7 +336,7 @@ func (c *Cpu) rotateLeft(instr *instruction) {
 	if instr.addrMode == addrModeAccumulator {
 		value = c.a
 	} else {
-		address = c.getAddress(instr.addrMode)
+		address, _ = c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
 	}
 
@@ -349,7 +379,7 @@ func (c *Cpu) rotateRight(instr *instruction) {
 	if instr.addrMode == addrModeAccumulator {
 		value = c.a
 	} else {
-		address = c.getAddress(instr.addrMode)
+		address, _ = c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
 	}
 
@@ -421,7 +451,7 @@ func (c *Cpu) pullA(instr *instruction) {
 }
 
 func (c *Cpu) storeA(instr *instruction) {
-	address := c.getAddress(instr.addrMode)
+	address, _ := c.getAddress(instr.addrMode)
 	c.mainBus.Write(address, c.a)
 	c.pc += uint16(instr.bytes)
 }
@@ -431,8 +461,13 @@ func (c *Cpu) loadA(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, pageCrossed := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
+		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
+			instr.addrMode == addrModeAbsoluteY ||
+			instr.addrMode == addrModeIndirIndexY) {
+			c.cycleDelay++
+		}
 	}
 	c.a = value
 
@@ -452,7 +487,7 @@ func (c *Cpu) loadA(instr *instruction) {
 }
 
 func (c *Cpu) storeX(instr *instruction) {
-	address := c.getAddress(instr.addrMode)
+	address, _ := c.getAddress(instr.addrMode)
 	c.mainBus.Write(address, c.x)
 	c.pc += uint16(instr.bytes)
 }
@@ -462,8 +497,13 @@ func (c *Cpu) loadX(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, pageCrossed := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
+		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
+			instr.addrMode == addrModeAbsoluteY ||
+			instr.addrMode == addrModeIndirIndexY) {
+			c.cycleDelay++
+		}
 	}
 	c.x = value
 
@@ -483,7 +523,7 @@ func (c *Cpu) loadX(instr *instruction) {
 }
 
 func (c *Cpu) storeY(instr *instruction) {
-	address := c.getAddress(instr.addrMode)
+	address, _ := c.getAddress(instr.addrMode)
 	c.mainBus.Write(address, c.y)
 	c.pc += uint16(instr.bytes)
 }
@@ -493,8 +533,13 @@ func (c *Cpu) loadY(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, pageCrossed := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
+		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
+			instr.addrMode == addrModeAbsoluteY ||
+			instr.addrMode == addrModeIndirIndexY) {
+			c.cycleDelay++
+		}
 	}
 	c.y = value
 
@@ -600,8 +645,13 @@ func (c *Cpu) compareA(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, pageCrossed := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
+		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
+			instr.addrMode == addrModeAbsoluteY ||
+			instr.addrMode == addrModeIndirIndexY) {
+			c.cycleDelay++
+		}
 	}
 
 	if c.a >= value {
@@ -632,7 +682,7 @@ func (c *Cpu) compareX(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, _ := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
 	}
 
@@ -664,7 +714,7 @@ func (c *Cpu) compareY(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, _ := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
 	}
 
@@ -764,7 +814,7 @@ func (c *Cpu) decrementX(instr *instruction) {
 }
 
 func (c *Cpu) incrementMemory(instr *instruction) {
-	address := c.getAddress(instr.addrMode)
+	address, _ := c.getAddress(instr.addrMode)
 	value := c.mainBus.Read(address)
 	value++
 	c.mainBus.Write(address, value)
@@ -785,7 +835,7 @@ func (c *Cpu) incrementMemory(instr *instruction) {
 }
 
 func (c *Cpu) decrementMemory(instr *instruction) {
-	address := c.getAddress(instr.addrMode)
+	address, _ := c.getAddress(instr.addrMode)
 	value := c.mainBus.Read(address)
 	value--
 	c.mainBus.Write(address, value)
@@ -806,12 +856,12 @@ func (c *Cpu) decrementMemory(instr *instruction) {
 }
 
 func (c *Cpu) jump(instr *instruction) {
-	address := c.getAddress(instr.addrMode)
+	address, _ := c.getAddress(instr.addrMode)
 	c.pc = address
 }
 
 func (c *Cpu) jumpToSubroutine(instr *instruction) {
-	address := c.getAddress(instr.addrMode)
+	address, _ := c.getAddress(instr.addrMode)
 	c.pc += 2
 	low := uint8(c.pc & 0x00FF)
 	high := uint8((c.pc & 0xFF00) >> 8)
@@ -833,8 +883,13 @@ func (c *Cpu) branchIfPlus(instr *instruction) {
 		return
 	}
 	c.pc++
-	address := c.getAddress(instr.addrMode)
+	address, pageCrossed := c.getAddress(instr.addrMode)
 	c.pc = address + 1
+
+	c.cycleDelay++
+	if pageCrossed {
+		c.cycleDelay++
+	}
 }
 
 func (c *Cpu) branchIfMinus(instr *instruction) {
@@ -843,8 +898,13 @@ func (c *Cpu) branchIfMinus(instr *instruction) {
 		return
 	}
 	c.pc++
-	address := c.getAddress(instr.addrMode)
+	address, pageCrossed := c.getAddress(instr.addrMode)
 	c.pc = address + 1
+
+	c.cycleDelay++
+	if pageCrossed {
+		c.cycleDelay++
+	}
 }
 
 func (c *Cpu) branchIfEqual(instr *instruction) {
@@ -853,8 +913,13 @@ func (c *Cpu) branchIfEqual(instr *instruction) {
 		return
 	}
 	c.pc++
-	address := c.getAddress(instr.addrMode)
+	address, pageCrossed := c.getAddress(instr.addrMode)
 	c.pc = address + 1
+
+	c.cycleDelay++
+	if pageCrossed {
+		c.cycleDelay++
+	}
 }
 
 func (c *Cpu) branchIfNotEqual(instr *instruction) {
@@ -863,8 +928,13 @@ func (c *Cpu) branchIfNotEqual(instr *instruction) {
 		return
 	}
 	c.pc++
-	address := c.getAddress(instr.addrMode)
+	address, pageCrossed := c.getAddress(instr.addrMode)
 	c.pc = address + 1
+
+	c.cycleDelay++
+	if pageCrossed {
+		c.cycleDelay++
+	}
 }
 
 func (c *Cpu) branchIfCarrySet(instr *instruction) {
@@ -873,8 +943,13 @@ func (c *Cpu) branchIfCarrySet(instr *instruction) {
 		return
 	}
 	c.pc++
-	address := c.getAddress(instr.addrMode)
+	address, pageCrossed := c.getAddress(instr.addrMode)
 	c.pc = address + 1
+
+	c.cycleDelay++
+	if pageCrossed {
+		c.cycleDelay++
+	}
 }
 
 func (c *Cpu) branchIfCarryClear(instr *instruction) {
@@ -883,8 +958,13 @@ func (c *Cpu) branchIfCarryClear(instr *instruction) {
 		return
 	}
 	c.pc++
-	address := c.getAddress(instr.addrMode)
+	address, pageCrossed := c.getAddress(instr.addrMode)
 	c.pc = address + 1
+
+	c.cycleDelay++
+	if pageCrossed {
+		c.cycleDelay++
+	}
 }
 
 func (c *Cpu) branchIfOverflowSet(instr *instruction) {
@@ -893,8 +973,13 @@ func (c *Cpu) branchIfOverflowSet(instr *instruction) {
 		return
 	}
 	c.pc++
-	address := c.getAddress(instr.addrMode)
+	address, pageCrossed := c.getAddress(instr.addrMode)
 	c.pc = address + 1
+
+	c.cycleDelay++
+	if pageCrossed {
+		c.cycleDelay++
+	}
 }
 
 func (c *Cpu) branchIfOverflowClear(instr *instruction) {
@@ -903,8 +988,13 @@ func (c *Cpu) branchIfOverflowClear(instr *instruction) {
 		return
 	}
 	c.pc++
-	address := c.getAddress(instr.addrMode)
+	address, pageCrossed := c.getAddress(instr.addrMode)
 	c.pc = address + 1
+
+	c.cycleDelay++
+	if pageCrossed {
+		c.cycleDelay++
+	}
 }
 
 func (c *Cpu) setCarry(instr *instruction) {
@@ -947,8 +1037,13 @@ func (c *Cpu) addWithCarry(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, pageCrossed := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
+		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
+			instr.addrMode == addrModeAbsoluteY ||
+			instr.addrMode == addrModeIndirIndexY) {
+			c.cycleDelay++
+		}
 	}
 
 	result := uint16(c.a) + uint16(value)
@@ -989,8 +1084,13 @@ func (c *Cpu) subtractWithCarry(instr *instruction) {
 	if instr.addrMode == addrModeImmediate {
 		value = c.mainBus.Read(c.pc + 1)
 	} else {
-		address := c.getAddress(instr.addrMode)
+		address, pageCrossed := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
+		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
+			instr.addrMode == addrModeAbsoluteY ||
+			instr.addrMode == addrModeIndirIndexY) {
+			c.cycleDelay++
+		}
 	}
 
 	result := int16(c.a) - int16(value)
