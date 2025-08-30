@@ -108,4 +108,13 @@ var opcodes = [256]instruction{
 	0x8C: {"STY", addrModeAbsolute, 3, 4, (*Cpu).storeY},
 	0x8D: {"STA", addrModeAbsolute, 3, 4, (*Cpu).storeA},
 	0x8E: {"STX", addrModeAbsolute, 3, 4, (*Cpu).storeX},
+	0x90: {"BCC", addrModeRelative, 2, 0, (*Cpu).branchIfCarryClear},
+	0x91: {"STA", addrModeIndirIndexY, 2, 6, (*Cpu).storeA},
+	0x94: {"STY", addrModeZeroPageX, 2, 4, (*Cpu).storeY},
+	0x95: {"STA", addrModeZeroPageX, 2, 4, (*Cpu).storeA},
+	0x96: {"STX", addrModeZeroPageY, 2, 4, (*Cpu).storeX},
+	0x98: {"TYA", addrModeImplied, 1, 2, (*Cpu).transferYToA},
+	0x99: {"STA", addrModeAbsoluteY, 3, 5, (*Cpu).storeA},
+	0x9A: {"TXS", addrModeImplied, 1, 2, (*Cpu).transferXToStackPointer},
+	0x9D: {"STA", addrModeAbsoluteX, 3, 5, (*Cpu).storeA},
 }
