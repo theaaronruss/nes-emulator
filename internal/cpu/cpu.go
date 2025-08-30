@@ -453,6 +453,16 @@ func (c *Cpu) branchIfMinus(instr *instruction) {
 	c.pc = address + 1
 }
 
+func (c *Cpu) branchIfOverflowSet(instr *instruction) {
+	if !c.testFlag(flagOverflow) {
+		c.pc += uint16(instr.bytes)
+		return
+	}
+	c.pc++
+	address := c.getAddress(instr.addrMode)
+	c.pc = address + 1
+}
+
 func (c *Cpu) branchIfOverflowClear(instr *instruction) {
 	if c.testFlag(flagOverflow) {
 		c.pc += uint16(instr.bytes)
@@ -470,6 +480,11 @@ func (c *Cpu) setCarry(instr *instruction) {
 
 func (c *Cpu) clearCarry(instr *instruction) {
 	c.clearFlag(flagCarry)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) setInterruptDisable(instr *instruction) {
+	c.setFlag(flagIntDisable)
 	c.pc += uint16(instr.bytes)
 }
 

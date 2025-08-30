@@ -91,4 +91,12 @@ var opcodes = [256]instruction{
 	0x6C: {"JMP", addrModeIndirect, 3, 5, (*Cpu).jump},
 	0x6D: {"ADC", addrModeAbsolute, 3, 4, (*Cpu).addWithCarry},
 	0x6E: {"ROR", addrModeAbsolute, 3, 6, (*Cpu).rotateRight},
+	0x70: {"BVS", addrModeRelative, 2, 0, (*Cpu).branchIfOverflowSet},
+	0x71: {"ADC", addrModeIndirIndexY, 2, 0, (*Cpu).addWithCarry},
+	0x75: {"ADC", addrModeZeroPageX, 2, 4, (*Cpu).addWithCarry},
+	0x76: {"ROR", addrModeZeroPageX, 2, 6, (*Cpu).rotateRight},
+	0x78: {"SEI", addrModeImplied, 1, 2, (*Cpu).setInterruptDisable},
+	0x79: {"ADC", addrModeAbsoluteY, 3, 0, (*Cpu).addWithCarry},
+	0x7D: {"ADC", addrModeAbsoluteX, 3, 0, (*Cpu).addWithCarry},
+	0x7E: {"ROR", addrModeAbsoluteX, 3, 7, (*Cpu).rotateRight},
 }
