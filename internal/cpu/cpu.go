@@ -419,15 +419,126 @@ func (c *Cpu) storeA(instr *instruction) {
 	c.pc += uint16(instr.bytes)
 }
 
+func (c *Cpu) loadA(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = c.mainBus.Read(c.pc + 1)
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+	c.a = value
+
+	if c.a == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.a&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
 func (c *Cpu) storeX(instr *instruction) {
 	address := c.getAddress(instr.addrMode)
 	c.mainBus.Write(address, c.x)
 	c.pc += uint16(instr.bytes)
 }
 
+func (c *Cpu) loadX(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = c.mainBus.Read(c.pc + 1)
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+	c.x = value
+
+	if c.x == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.x&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
 func (c *Cpu) storeY(instr *instruction) {
 	address := c.getAddress(instr.addrMode)
 	c.mainBus.Write(address, c.y)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) loadY(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = c.mainBus.Read(c.pc + 1)
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+	c.y = value
+
+	if c.y == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.y&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) transferAToX(instr *instruction) {
+	c.x = c.a
+
+	if c.x == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.x&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) transferAToY(instr *instruction) {
+	c.y = c.a
+
+	if c.y == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.y&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
 	c.pc += uint16(instr.bytes)
 }
 
