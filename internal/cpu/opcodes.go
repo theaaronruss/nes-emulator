@@ -170,4 +170,12 @@ var opcodes = [256]instruction{
 	0xEC: {"CPX", addrModeAbsolute, 3, 4, (*Cpu).compareX},
 	0xED: {"SBC", addrModeAbsolute, 3, 4, (*Cpu).subtractWithCarry},
 	0xEE: {"INC", addrModeAbsolute, 3, 6, (*Cpu).incrementMemory},
+	0xF0: {"BEQ", addrModeRelative, 2, 0, (*Cpu).branchIfEqual},
+	0xF1: {"SBC", addrModeIndirIndexY, 2, 0, (*Cpu).subtractWithCarry},
+	0xF5: {"SBC", addrModeZeroPageX, 2, 4, (*Cpu).subtractWithCarry},
+	0xF6: {"INC", addrModeZeroPageX, 2, 6, (*Cpu).incrementMemory},
+	0xF8: {"SED", addrModeImplied, 1, 2, (*Cpu).setDecimal},
+	0xF9: {"SBC", addrModeAbsoluteY, 3, 0, (*Cpu).subtractWithCarry},
+	0xFD: {"SBC", addrModeAbsoluteX, 3, 0, (*Cpu).subtractWithCarry},
+	0xFE: {"INC", addrModeAbsoluteX, 3, 7, (*Cpu).incrementMemory},
 }
