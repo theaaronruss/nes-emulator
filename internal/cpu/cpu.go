@@ -583,6 +583,11 @@ func (c *Cpu) transferXToStackPointer(instr *instruction) {
 	c.pc += uint16(instr.bytes)
 }
 
+func (c *Cpu) transferStackPointerToX(instr *instruction) {
+	c.x = c.sp
+	c.pc += uint16(instr.bytes)
+}
+
 func (c *Cpu) decrementY(instr *instruction) {
 	c.y--
 
@@ -643,6 +648,16 @@ func (c *Cpu) branchIfMinus(instr *instruction) {
 	c.pc = address + 1
 }
 
+func (c *Cpu) branchIfCarrySet(instr *instruction) {
+	if !c.testFlag(flagCarry) {
+		c.pc += uint16(instr.bytes)
+		return
+	}
+	c.pc++
+	address := c.getAddress(instr.addrMode)
+	c.pc = address + 1
+}
+
 func (c *Cpu) branchIfCarryClear(instr *instruction) {
 	if c.testFlag(flagCarry) {
 		c.pc += uint16(instr.bytes)
@@ -680,6 +695,11 @@ func (c *Cpu) setCarry(instr *instruction) {
 
 func (c *Cpu) clearCarry(instr *instruction) {
 	c.clearFlag(flagCarry)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) clearOverflow(instr *instruction) {
+	c.clearFlag(flagOverflow)
 	c.pc += uint16(instr.bytes)
 }
 
