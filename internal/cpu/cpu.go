@@ -30,7 +30,8 @@ type Cpu struct {
 	pc     uint16
 	status uint8
 
-	mainBus *bus.Bus
+	mainBus    *bus.Bus
+	clockDelay int
 }
 
 func NewCpu(mainBus *bus.Bus) *Cpu {
@@ -47,12 +48,20 @@ func (c *Cpu) Reset() {
 	pcHigh := c.mainBus.Read(resetVector + 1)
 	c.pc = uint16(pcHigh)<<8 | uint16(pcLow)
 	c.setFlag(flagIntDisable)
+	c.clockDelay = -1
 }
 
 func (c *Cpu) ClockCycle() {
 	opcode := c.mainBus.Read(c.pc)
 	instruction := opcodes[opcode]
-	instruction.fn(c, &instruction)
+	switch c.clockDelay {
+	case -1:
+		c.clockDelay = instruction.cycles
+		return
+	case 0:
+		instruction.fn(c, &instruction)
+	}
+	c.clockDelay--
 }
 
 func (c *Cpu) setFlag(flag uint8) {
