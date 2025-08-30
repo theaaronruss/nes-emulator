@@ -82,4 +82,13 @@ var opcodes = [256]instruction{
 	0x5D: {"EOR", addrModeAbsoluteX, 3, 0, (*Cpu).bitwiseXor},
 	0x5E: {"LSR", addrModeAbsoluteX, 3, 7, (*Cpu).logicalShiftRight},
 	0x60: {"RTS", addrModeImplied, 1, 6, (*Cpu).returnFromSubroutine},
+	0x61: {"ADC", addrModeIndexIndirX, 2, 6, (*Cpu).addWithCarry},
+	0x65: {"ADC", addrModeZeroPage, 2, 3, (*Cpu).addWithCarry},
+	0x66: {"ROR", addrModeZeroPage, 2, 5, (*Cpu).rotateRight},
+	0x68: {"PLA", addrModeImplied, 1, 4, (*Cpu).pullA},
+	0x69: {"ADC", addrModeImmediate, 2, 2, (*Cpu).addWithCarry},
+	0x6A: {"ROR", addrModeAccumulator, 1, 2, (*Cpu).rotateRight},
+	0x6C: {"JMP", addrModeIndirect, 3, 5, (*Cpu).jump},
+	0x6D: {"ADC", addrModeAbsolute, 3, 4, (*Cpu).addWithCarry},
+	0x6E: {"ROR", addrModeAbsolute, 3, 6, (*Cpu).rotateRight},
 }

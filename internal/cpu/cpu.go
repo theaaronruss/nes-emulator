@@ -84,6 +84,9 @@ func (c *Cpu) getAddress(addrMode addressMode) uint16 {
 	case addrModeZeroPageX:
 		address := c.mainBus.Read(c.pc + 1)
 		return uint16(address + c.x)
+	case addrModeZeroPageY:
+		address := c.mainBus.Read(c.pc + 1)
+		return uint16(address + c.y)
 	case addrModeAbsoluteX:
 		address := c.getAddress(addrModeAbsolute)
 		return address + uint16(c.x)
@@ -111,6 +114,11 @@ func (c *Cpu) getAddress(addrMode addressMode) uint16 {
 	case addrModeRelative:
 		offset := int8(c.mainBus.Read(c.pc))
 		return c.pc + uint16(offset)
+	case addrModeIndirect:
+		address := c.getAddress(addrModeAbsolute)
+		low := c.mainBus.Read(address)
+		high := c.mainBus.Read(address + 1)
+		return uint16(high)<<8 | uint16(low)
 	}
 	return 0x0000
 }
@@ -145,12 +153,12 @@ func (c *Cpu) bitTest(instr *instruction) {
 	} else {
 		c.clearFlag(flagZero)
 	}
-	if value&0b01000000 > 0 {
+	if value&0x40 > 0 {
 		c.setFlag(flagOverflow)
 	} else {
 		c.clearFlag(flagOverflow)
 	}
-	if value&0b10000000 > 0 {
+	if value&0x80 > 0 {
 		c.setFlag(flagNegative)
 	} else {
 		c.clearFlag(flagNegative)
@@ -171,7 +179,7 @@ func (c *Cpu) bitwiseOr(instr *instruction) {
 	} else {
 		c.clearFlag(flagZero)
 	}
-	if c.a&0b10000000 > 0 {
+	if c.a&0x80 > 0 {
 		c.setFlag(flagNegative)
 	} else {
 		c.clearFlag(flagNegative)
@@ -193,7 +201,7 @@ func (c *Cpu) bitwiseXor(instr *instruction) {
 	} else {
 		c.clearFlag(flagZero)
 	}
-	if c.a&0b10000000 > 0 {
+	if c.a&0x80 > 0 {
 		c.setFlag(flagNegative)
 	} else {
 		c.clearFlag(flagNegative)
@@ -215,7 +223,7 @@ func (c *Cpu) bitwiseAnd(instr *instruction) {
 	} else {
 		c.clearFlag(flagZero)
 	}
-	if c.a&0b10000000 > 0 {
+	if c.a&0x80 > 0 {
 		c.setFlag(flagNegative)
 	} else {
 		c.clearFlag(flagNegative)
@@ -232,7 +240,7 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 		address = c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
 	}
-	if value&0b10000000 > 0 {
+	if value&0x80 > 0 {
 		c.setFlag(flagCarry)
 	} else {
 		c.clearFlag(flagCarry)
@@ -243,7 +251,7 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 	} else {
 		c.clearFlag(flagZero)
 	}
-	if value&0b10000000 > 0 {
+	if value&0x80 > 0 {
 		c.setFlag(flagNegative)
 	} else {
 		c.clearFlag(flagNegative)
@@ -265,7 +273,7 @@ func (c *Cpu) logicalShiftRight(instr *instruction) {
 		address = c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
 	}
-	if value&0b00000001 > 0 {
+	if value&0x01 > 0 {
 		c.setFlag(flagCarry)
 	} else {
 		c.clearFlag(flagCarry)
@@ -294,31 +302,80 @@ func (c *Cpu) rotateLeft(instr *instruction) {
 		address = c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
 	}
-	carryBit := value&0b10000000 > 0
-	if value&0b10000000 > 0 {
+
+	if value&0x80 > 0 {
 		c.setFlag(flagCarry)
 	} else {
 		c.clearFlag(flagCarry)
 	}
+
 	value <<= 1
-	if carryBit {
-		value |= 0b00000001
+
+	if c.testFlag(flagCarry) {
+		value |= 0x01
 	}
+
 	if value == 0 {
 		c.setFlag(flagZero)
 	} else {
 		c.clearFlag(flagZero)
 	}
-	if value&0b10000000 > 0 {
+
+	if value&0x80 > 0 {
 		c.setFlag(flagNegative)
 	} else {
 		c.clearFlag(flagNegative)
 	}
+
 	if instr.addrMode == addrModeAccumulator {
 		c.a = value
 	} else {
 		c.mainBus.Write(address, value)
 	}
+
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) rotateRight(instr *instruction) {
+	var value uint8
+	var address uint16
+	if instr.addrMode == addrModeAccumulator {
+		value = c.a
+	} else {
+		address = c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+
+	if value&0x01 > 0 {
+		c.setFlag(flagCarry)
+	} else {
+		c.clearFlag(flagCarry)
+	}
+
+	value >>= 1
+
+	if c.testFlag(flagCarry) {
+		value |= 0x80
+	}
+
+	if value == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	if instr.addrMode == addrModeAccumulator {
+		c.a = value
+	} else {
+		c.mainBus.Write(address, value)
+	}
+
 	c.pc += uint16(instr.bytes)
 }
 
@@ -336,6 +393,22 @@ func (c *Cpu) pullProcessorStatus(instr *instruction) {
 func (c *Cpu) pushA(instr *instruction) {
 	c.stackPush(c.a)
 	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) pullA(instr *instruction) {
+	c.a = c.stackPop()
+
+	if c.a == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.a&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
 }
 
 func (c *Cpu) jump(instr *instruction) {
@@ -403,4 +476,45 @@ func (c *Cpu) clearCarry(instr *instruction) {
 func (c *Cpu) clearInterruptDisable(instr *instruction) {
 	c.clearFlag(flagIntDisable)
 	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) addWithCarry(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = c.a
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+
+	result := uint16(c.a) + uint16(value)
+	if c.testFlag(flagCarry) {
+		result++
+	}
+
+	if result > 255 {
+		c.setFlag(flagCarry)
+	} else {
+		c.clearFlag(flagCarry)
+	}
+
+	if result == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if (uint8(result)^c.a)&(uint8(result)^value)&0x80 > 0 {
+		c.setFlag(flagOverflow)
+	} else {
+		c.clearFlag(flagOverflow)
+	}
+
+	if result&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.a = uint8(result)
 }
