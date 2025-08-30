@@ -48,18 +48,16 @@ func (c *Cpu) Reset() {
 	pcHigh := c.mainBus.Read(resetVector + 1)
 	c.pc = uint16(pcHigh)<<8 | uint16(pcLow)
 	c.setFlag(flagIntDisable)
-	c.clockDelay = -1
+	c.clockDelay = 0
 }
 
 func (c *Cpu) ClockCycle() {
-	opcode := c.mainBus.Read(c.pc)
-	instruction := opcodes[opcode]
-	switch c.clockDelay {
-	case -1:
+	if c.clockDelay <= 0 {
+		opcode := c.mainBus.Read(c.pc)
+		instruction := opcodes[opcode]
+		instruction.fn(c, &instruction)
 		c.clockDelay = instruction.cycles
 		return
-	case 0:
-		instruction.fn(c, &instruction)
 	}
 	c.clockDelay--
 }
