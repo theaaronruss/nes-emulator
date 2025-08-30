@@ -99,4 +99,13 @@ var opcodes = [256]instruction{
 	0x79: {"ADC", addrModeAbsoluteY, 3, 0, (*Cpu).addWithCarry},
 	0x7D: {"ADC", addrModeAbsoluteX, 3, 0, (*Cpu).addWithCarry},
 	0x7E: {"ROR", addrModeAbsoluteX, 3, 7, (*Cpu).rotateRight},
+	0x81: {"STA", addrModeIndexIndirX, 2, 6, (*Cpu).storeA},
+	0x84: {"STY", addrModeZeroPage, 2, 3, (*Cpu).storeY},
+	0x85: {"STA", addrModeZeroPage, 2, 3, (*Cpu).storeA},
+	0x86: {"STX", addrModeZeroPage, 2, 3, (*Cpu).storeX},
+	0x88: {"DEY", addrModeImplied, 1, 2, (*Cpu).decrementY},
+	0x8A: {"TXA", addrModeImplied, 1, 2, (*Cpu).transferXToA},
+	0x8C: {"STY", addrModeAbsolute, 3, 4, (*Cpu).storeY},
+	0x8D: {"STA", addrModeAbsolute, 3, 4, (*Cpu).storeA},
+	0x8E: {"STX", addrModeAbsolute, 3, 4, (*Cpu).storeX},
 }

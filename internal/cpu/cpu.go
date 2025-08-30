@@ -409,6 +409,60 @@ func (c *Cpu) pullA(instr *instruction) {
 	} else {
 		c.clearFlag(flagNegative)
 	}
+
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) storeA(instr *instruction) {
+	address := c.getAddress(instr.addrMode)
+	c.mainBus.Write(address, c.a)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) storeX(instr *instruction) {
+	address := c.getAddress(instr.addrMode)
+	c.mainBus.Write(address, c.x)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) storeY(instr *instruction) {
+	address := c.getAddress(instr.addrMode)
+	c.mainBus.Write(address, c.y)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) transferXToA(instr *instruction) {
+	c.a = c.x
+
+	if c.a == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.a&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+}
+
+func (c *Cpu) decrementY(instr *instruction) {
+	c.y--
+
+	if c.y == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.y&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
 }
 
 func (c *Cpu) jump(instr *instruction) {
@@ -532,4 +586,5 @@ func (c *Cpu) addWithCarry(instr *instruction) {
 	}
 
 	c.a = uint8(result)
+	c.pc += uint16(instr.bytes)
 }
