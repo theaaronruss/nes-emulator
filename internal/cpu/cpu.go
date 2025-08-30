@@ -620,6 +620,38 @@ func (c *Cpu) compareA(instr *instruction) {
 	c.pc += uint16(instr.bytes)
 }
 
+func (c *Cpu) compareX(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = c.mainBus.Read(c.pc + 1)
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+
+	if c.x >= value {
+		c.setFlag(flagCarry)
+	} else {
+		c.clearFlag(flagCarry)
+	}
+
+	if c.x == value {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	result := c.x - value
+
+	if result&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
 func (c *Cpu) compareY(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
@@ -670,6 +702,42 @@ func (c *Cpu) incrementY(instr *instruction) {
 	c.pc += uint16(instr.bytes)
 }
 
+func (c *Cpu) decrementY(instr *instruction) {
+	c.y--
+
+	if c.y == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.y&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) incrementX(instr *instruction) {
+	c.x++
+
+	if c.x == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if c.x&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.pc += uint16(instr.bytes)
+}
+
 func (c *Cpu) decrementX(instr *instruction) {
 	c.x--
 
@@ -688,16 +756,19 @@ func (c *Cpu) decrementX(instr *instruction) {
 	c.pc += uint16(instr.bytes)
 }
 
-func (c *Cpu) decrementY(instr *instruction) {
-	c.y--
+func (c *Cpu) incrementMemory(instr *instruction) {
+	address := c.getAddress(instr.addrMode)
+	value := c.mainBus.Read(address)
+	value++
+	c.mainBus.Write(address, value)
 
-	if c.y == 0 {
+	if value == 0 {
 		c.setFlag(flagZero)
 	} else {
 		c.clearFlag(flagZero)
 	}
 
-	if c.y&0x80 > 0 {
+	if value&0x80 > 0 {
 		c.setFlag(flagNegative)
 	} else {
 		c.clearFlag(flagNegative)
@@ -852,7 +923,7 @@ func (c *Cpu) clearInterruptDisable(instr *instruction) {
 func (c *Cpu) addWithCarry(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.a
+		value = c.mainBus.Read(c.pc + 1)
 	} else {
 		address := c.getAddress(instr.addrMode)
 		value = c.mainBus.Read(address)
@@ -888,5 +959,51 @@ func (c *Cpu) addWithCarry(instr *instruction) {
 	}
 
 	c.a = uint8(result)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) subtractWithCarry(instr *instruction) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = c.mainBus.Read(c.pc + 1)
+	} else {
+		address := c.getAddress(instr.addrMode)
+		value = c.mainBus.Read(address)
+	}
+
+	result := int16(c.a) - int16(value)
+	if !c.testFlag(flagCarry) {
+		result--
+	}
+
+	if result >= 0 {
+		c.setFlag(flagCarry)
+	} else {
+		c.clearFlag(flagCarry)
+	}
+
+	if result == 0 {
+		c.setFlag(flagZero)
+	} else {
+		c.clearFlag(flagZero)
+	}
+
+	if (uint8(result)^c.a)&(uint8(result)^^value)&0x80 > 0 {
+		c.setFlag(flagOverflow)
+	} else {
+		c.clearFlag(flagOverflow)
+	}
+
+	if result&0x80 > 0 {
+		c.setFlag(flagNegative)
+	} else {
+		c.clearFlag(flagNegative)
+	}
+
+	c.a = uint8(result)
+	c.pc += uint16(instr.bytes)
+}
+
+func (c *Cpu) noOperation(instr *instruction) {
 	c.pc += uint16(instr.bytes)
 }
