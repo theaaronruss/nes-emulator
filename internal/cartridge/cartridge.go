@@ -9,13 +9,14 @@ import (
 var headerStart = [4]byte{0x4E, 0x45, 0x53, 0x1A}
 
 const (
-	headerSize  int = 16
-	trainerSize int = 512
+	headerSize     int = 16
+	trainerSize    int = 512
+	PrgRomBankSize int = 16384
 )
 
 type Cartridge struct {
-	programData   []byte
-	characterData []byte
+	programDataBanks [][]byte
+	characterData    []byte
 
 	prgSize    int
 	chrSize    int
@@ -51,8 +52,11 @@ func LoadCartridge(filePath string) (*Cartridge, error) {
 	return cartridge, nil
 }
 
-func (cart *Cartridge) Read(address uint16) uint8 {
-	return 0
+func (cart *Cartridge) Read(bank int, address uint16) uint8 {
+	if bank < 0 || bank >= len(cart.programDataBanks) || address > uint16(PrgRomBankSize) {
+		return 0x00
+	}
+	return cart.programDataBanks[bank][address]
 }
 
 func (cart *Cartridge) parseHeader(file *os.File) error {
@@ -81,13 +85,16 @@ func (cart *Cartridge) parseHeader(file *os.File) error {
 }
 
 func (cart *Cartridge) readProgramData(file *os.File) error {
-	cart.programData = make([]byte, cart.prgSize)
-	n, err := file.Read(cart.programData)
-	if err != nil {
-		return err
-	}
-	if n < cart.prgSize {
-		return errors.New("unexpected end of rom file")
+	cart.programDataBanks = make([][]byte, cart.prgSize)
+	for i := range cart.prgSize {
+		cart.programDataBanks[i] = make([]byte, PrgRomBankSize)
+		n, err := file.Read(cart.programDataBanks[i])
+		if err != nil {
+			return err
+		}
+		if n < PrgRomBankSize {
+			return errors.New("unexpected end of rom file")
+		}
 	}
 	return nil
 }
