@@ -1,8 +1,6 @@
 package cpu
 
-import (
-	"github.com/theaaronruss/nes-emulator/internal/bus"
-)
+import "github.com/theaaronruss/nes-emulator/internal/sysbus"
 
 const (
 	resetVector         = 0xFFFC
@@ -30,22 +28,19 @@ type Cpu struct {
 	pc     uint16
 	status uint8
 
-	cpuBus     *bus.CpuBus
 	cycleDelay int
 }
 
-func NewCpu(mainBus *bus.CpuBus) *Cpu {
-	cpu := &Cpu{
-		cpuBus: mainBus,
-	}
+func NewCpu() *Cpu {
+	cpu := &Cpu{}
 	cpu.Reset()
 	return cpu
 }
 
 func (c *Cpu) Reset() {
 	c.sp = initialStackPointer
-	pcLow := c.cpuBus.Read(resetVector)
-	pcHigh := c.cpuBus.Read(resetVector + 1)
+	pcLow := sysbus.Read(resetVector)
+	pcHigh := sysbus.Read(resetVector + 1)
 	c.pc = uint16(pcHigh)<<8 | uint16(pcLow)
 	c.setFlag(flagIntDisable)
 	c.cycleDelay = 0
@@ -53,7 +48,7 @@ func (c *Cpu) Reset() {
 
 func (c *Cpu) ClockCycle() {
 	if c.cycleDelay <= 0 {
-		opcode := c.cpuBus.Read(c.pc)
+		opcode := sysbus.Read(c.pc)
 		instruction := opcodes[opcode]
 		instruction.fn(c, &instruction)
 		c.cycleDelay += instruction.cycles
@@ -76,23 +71,23 @@ func (c *Cpu) testFlag(flag uint8) bool {
 
 func (c *Cpu) stackPush(data uint8) {
 	address := stackBase + uint16(c.sp)
-	c.cpuBus.Write(address, data)
+	sysbus.Write(address, data)
 	c.sp--
 }
 
 func (c *Cpu) stackPop() uint8 {
 	c.sp++
 	address := stackBase + uint16(c.sp)
-	return c.cpuBus.Read(address)
+	return sysbus.Read(address)
 }
 
 func (c *Cpu) getAddress(addrMode addressMode) (uint16, bool) {
 	switch addrMode {
 	case addrModeZeroPageX:
-		address := c.cpuBus.Read(c.pc + 1)
+		address := sysbus.Read(c.pc + 1)
 		return uint16(address + c.x), false
 	case addrModeZeroPageY:
-		address := c.cpuBus.Read(c.pc + 1)
+		address := sysbus.Read(c.pc + 1)
 		return uint16(address + c.y), false
 	case addrModeAbsoluteX:
 		baseAddress, _ := c.getAddress(addrModeAbsolute)
@@ -111,15 +106,15 @@ func (c *Cpu) getAddress(addrMode addressMode) (uint16, bool) {
 			return address, true
 		}
 	case addrModeIndexIndirX:
-		zeroPageAddr := c.cpuBus.Read(c.pc + 1)
+		zeroPageAddr := sysbus.Read(c.pc + 1)
 		zeroPageAddr += c.x
-		low := c.cpuBus.Read(uint16(zeroPageAddr))
-		high := c.cpuBus.Read(uint16(zeroPageAddr) + 1)
+		low := sysbus.Read(uint16(zeroPageAddr))
+		high := sysbus.Read(uint16(zeroPageAddr) + 1)
 		return uint16(high)<<8 | uint16(low), false
 	case addrModeIndirIndexY:
-		zeroPageAddr := c.cpuBus.Read(c.pc + 1)
-		low := c.cpuBus.Read(uint16(zeroPageAddr))
-		high := c.cpuBus.Read(uint16(zeroPageAddr) + 1)
+		zeroPageAddr := sysbus.Read(c.pc + 1)
+		low := sysbus.Read(uint16(zeroPageAddr))
+		high := sysbus.Read(uint16(zeroPageAddr) + 1)
 		baseAddress := uint16(high)<<8 | uint16(low)
 		address := baseAddress + uint16(c.y)
 		if baseAddress&0xFF00 == address&0xFF00 {
@@ -128,18 +123,18 @@ func (c *Cpu) getAddress(addrMode addressMode) (uint16, bool) {
 			return address, true
 		}
 	case addrModeZeroPage:
-		return uint16(c.cpuBus.Read(c.pc + 1)), false
+		return uint16(sysbus.Read(c.pc + 1)), false
 	case addrModeAbsolute:
-		low := c.cpuBus.Read(c.pc + 1)
-		high := c.cpuBus.Read(c.pc + 2)
+		low := sysbus.Read(c.pc + 1)
+		high := sysbus.Read(c.pc + 2)
 		return uint16(high)<<8 | uint16(low), false
 	case addrModeRelative:
-		offset := int8(c.cpuBus.Read(c.pc))
+		offset := int8(sysbus.Read(c.pc))
 		return c.pc + uint16(offset), false
 	case addrModeIndirect:
 		address, _ := c.getAddress(addrModeAbsolute)
-		low := c.cpuBus.Read(address)
-		high := c.cpuBus.Read(address + 1)
+		low := sysbus.Read(address)
+		high := sysbus.Read(address + 1)
 		return uint16(high)<<8 | uint16(low), false
 	}
 	return 0x0000, false
@@ -152,8 +147,8 @@ func (c *Cpu) forceBreak(instr *instruction) {
 	c.stackPush(oldPcHigh)
 	c.stackPush(oldPcLow)
 	c.stackPush(c.status | flagUnused | flagBreak)
-	newPcLow := c.cpuBus.Read(irqVector)
-	newPcHigh := c.cpuBus.Read(irqVector + 1)
+	newPcLow := sysbus.Read(irqVector)
+	newPcHigh := sysbus.Read(irqVector + 1)
 	newPc := uint16(newPcHigh)<<8 | uint16(newPcLow)
 	c.pc = newPc
 }
@@ -168,7 +163,7 @@ func (c *Cpu) returnFromInterrupt(instr *instruction) {
 
 func (c *Cpu) bitTest(instr *instruction) {
 	address, _ := c.getAddress(instr.addrMode)
-	value := c.cpuBus.Read(address)
+	value := sysbus.Read(address)
 	result := c.a & value
 	if result == 0 {
 		c.setFlag(flagZero)
@@ -190,10 +185,10 @@ func (c *Cpu) bitTest(instr *instruction) {
 func (c *Cpu) bitwiseOr(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, pageCrossed := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
 			instr.addrMode == addrModeAbsoluteY ||
 			instr.addrMode == addrModeIndirIndexY) {
@@ -217,10 +212,10 @@ func (c *Cpu) bitwiseOr(instr *instruction) {
 func (c *Cpu) bitwiseXor(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, pageCrossed := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
 			instr.addrMode == addrModeAbsoluteY ||
 			instr.addrMode == addrModeIndirIndexY) {
@@ -244,10 +239,10 @@ func (c *Cpu) bitwiseXor(instr *instruction) {
 func (c *Cpu) bitwiseAnd(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, pageCrossed := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
 			instr.addrMode == addrModeAbsoluteY ||
 			instr.addrMode == addrModeIndirIndexY) {
@@ -275,7 +270,7 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 		value = c.a
 	} else {
 		address, _ = c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 	}
 	if value&0x80 > 0 {
 		c.setFlag(flagCarry)
@@ -296,7 +291,7 @@ func (c *Cpu) arithmeticShiftLeft(instr *instruction) {
 	if instr.addrMode == addrModeAccumulator {
 		c.a = value
 	} else {
-		c.cpuBus.Write(address, value)
+		sysbus.Write(address, value)
 	}
 	c.pc += uint16(instr.bytes)
 }
@@ -308,7 +303,7 @@ func (c *Cpu) logicalShiftRight(instr *instruction) {
 		value = c.a
 	} else {
 		address, _ = c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 	}
 	if value&0x01 > 0 {
 		c.setFlag(flagCarry)
@@ -325,7 +320,7 @@ func (c *Cpu) logicalShiftRight(instr *instruction) {
 	if instr.addrMode == addrModeAccumulator {
 		c.a = value
 	} else {
-		c.cpuBus.Write(address, value)
+		sysbus.Write(address, value)
 	}
 	c.pc += uint16(instr.bytes)
 }
@@ -337,7 +332,7 @@ func (c *Cpu) rotateLeft(instr *instruction) {
 		value = c.a
 	} else {
 		address, _ = c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 	}
 
 	if value&0x80 > 0 {
@@ -367,7 +362,7 @@ func (c *Cpu) rotateLeft(instr *instruction) {
 	if instr.addrMode == addrModeAccumulator {
 		c.a = value
 	} else {
-		c.cpuBus.Write(address, value)
+		sysbus.Write(address, value)
 	}
 
 	c.pc += uint16(instr.bytes)
@@ -380,7 +375,7 @@ func (c *Cpu) rotateRight(instr *instruction) {
 		value = c.a
 	} else {
 		address, _ = c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 	}
 
 	if value&0x01 > 0 {
@@ -410,7 +405,7 @@ func (c *Cpu) rotateRight(instr *instruction) {
 	if instr.addrMode == addrModeAccumulator {
 		c.a = value
 	} else {
-		c.cpuBus.Write(address, value)
+		sysbus.Write(address, value)
 	}
 
 	c.pc += uint16(instr.bytes)
@@ -452,17 +447,17 @@ func (c *Cpu) pullA(instr *instruction) {
 
 func (c *Cpu) storeA(instr *instruction) {
 	address, _ := c.getAddress(instr.addrMode)
-	c.cpuBus.Write(address, c.a)
+	sysbus.Write(address, c.a)
 	c.pc += uint16(instr.bytes)
 }
 
 func (c *Cpu) loadA(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, pageCrossed := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
 			instr.addrMode == addrModeAbsoluteY ||
 			instr.addrMode == addrModeIndirIndexY) {
@@ -488,17 +483,17 @@ func (c *Cpu) loadA(instr *instruction) {
 
 func (c *Cpu) storeX(instr *instruction) {
 	address, _ := c.getAddress(instr.addrMode)
-	c.cpuBus.Write(address, c.x)
+	sysbus.Write(address, c.x)
 	c.pc += uint16(instr.bytes)
 }
 
 func (c *Cpu) loadX(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, pageCrossed := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
 			instr.addrMode == addrModeAbsoluteY ||
 			instr.addrMode == addrModeIndirIndexY) {
@@ -524,17 +519,17 @@ func (c *Cpu) loadX(instr *instruction) {
 
 func (c *Cpu) storeY(instr *instruction) {
 	address, _ := c.getAddress(instr.addrMode)
-	c.cpuBus.Write(address, c.y)
+	sysbus.Write(address, c.y)
 	c.pc += uint16(instr.bytes)
 }
 
 func (c *Cpu) loadY(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, pageCrossed := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
 			instr.addrMode == addrModeAbsoluteY ||
 			instr.addrMode == addrModeIndirIndexY) {
@@ -643,10 +638,10 @@ func (c *Cpu) transferStackPointerToX(instr *instruction) {
 func (c *Cpu) compareA(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, pageCrossed := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
 			instr.addrMode == addrModeAbsoluteY ||
 			instr.addrMode == addrModeIndirIndexY) {
@@ -680,10 +675,10 @@ func (c *Cpu) compareA(instr *instruction) {
 func (c *Cpu) compareX(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, _ := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 	}
 
 	if c.x >= value {
@@ -712,10 +707,10 @@ func (c *Cpu) compareX(instr *instruction) {
 func (c *Cpu) compareY(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, _ := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 	}
 
 	if c.y >= value {
@@ -815,9 +810,9 @@ func (c *Cpu) decrementX(instr *instruction) {
 
 func (c *Cpu) incrementMemory(instr *instruction) {
 	address, _ := c.getAddress(instr.addrMode)
-	value := c.cpuBus.Read(address)
+	value := sysbus.Read(address)
 	value++
-	c.cpuBus.Write(address, value)
+	sysbus.Write(address, value)
 
 	if value == 0 {
 		c.setFlag(flagZero)
@@ -836,9 +831,9 @@ func (c *Cpu) incrementMemory(instr *instruction) {
 
 func (c *Cpu) decrementMemory(instr *instruction) {
 	address, _ := c.getAddress(instr.addrMode)
-	value := c.cpuBus.Read(address)
+	value := sysbus.Read(address)
 	value--
-	c.cpuBus.Write(address, value)
+	sysbus.Write(address, value)
 
 	if value == 0 {
 		c.setFlag(flagZero)
@@ -1035,10 +1030,10 @@ func (c *Cpu) clearInterruptDisable(instr *instruction) {
 func (c *Cpu) addWithCarry(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, pageCrossed := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
 			instr.addrMode == addrModeAbsoluteY ||
 			instr.addrMode == addrModeIndirIndexY) {
@@ -1082,10 +1077,10 @@ func (c *Cpu) addWithCarry(instr *instruction) {
 func (c *Cpu) subtractWithCarry(instr *instruction) {
 	var value uint8
 	if instr.addrMode == addrModeImmediate {
-		value = c.cpuBus.Read(c.pc + 1)
+		value = sysbus.Read(c.pc + 1)
 	} else {
 		address, pageCrossed := c.getAddress(instr.addrMode)
-		value = c.cpuBus.Read(address)
+		value = sysbus.Read(address)
 		if pageCrossed && (instr.addrMode == addrModeAbsoluteX ||
 			instr.addrMode == addrModeAbsoluteY ||
 			instr.addrMode == addrModeIndirIndexY) {
