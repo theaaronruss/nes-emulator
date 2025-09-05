@@ -7,8 +7,8 @@ import (
 	"github.com/gopxl/pixel/v2"
 	"github.com/gopxl/pixel/v2/backends/opengl"
 	"github.com/theaaronruss/nes-emulator/internal/cartridge"
-	"github.com/theaaronruss/nes-emulator/internal/cpu"
-	"github.com/theaaronruss/nes-emulator/internal/ppu"
+	"github.com/theaaronruss/nes-emulator/internal/graphics"
+	"github.com/theaaronruss/nes-emulator/internal/processor"
 	"github.com/theaaronruss/nes-emulator/internal/sysbus"
 )
 
@@ -29,8 +29,8 @@ func run() {
 		fmt.Println("Failed to load ROM file")
 		return
 	}
-	cpu := cpu.NewCpu()
-	ppu := ppu.NewPpu()
+	cpu := processor.NewCpu()
+	ppu := graphics.NewPpu()
 	clockCycle := 0
 
 	cfg := opengl.WindowConfig{

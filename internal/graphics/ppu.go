@@ -1,4 +1,4 @@
-package ppu
+package graphics
 
 import "math/rand"
 

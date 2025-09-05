@@ -1,4 +1,4 @@
-package cpu
+package processor
 
 type addressMode int
 
