@@ -7,8 +7,8 @@ import (
 	"github.com/gopxl/pixel/v2"
 	"github.com/gopxl/pixel/v2/backends/opengl"
 	"github.com/theaaronruss/nes-emulator/internal/cartridge"
+	"github.com/theaaronruss/nes-emulator/internal/cpu"
 	"github.com/theaaronruss/nes-emulator/internal/graphics"
-	"github.com/theaaronruss/nes-emulator/internal/processor"
 	"github.com/theaaronruss/nes-emulator/internal/sysbus"
 )
 
@@ -25,11 +25,11 @@ func main() {
 func run() {
 	var err error
 	sysbus.GamePak, err = cartridge.LoadCartridge("nestest.nes")
+	cpu.Reset()
 	if err != nil {
 		fmt.Println("Failed to load ROM file")
 		return
 	}
-	cpu := processor.NewCpu()
 	ppu := graphics.NewPpu()
 	clockCycle := 0
 
@@ -48,7 +48,7 @@ func run() {
 			ppu.ClockCycle()
 			clockCycle++
 			if clockCycle >= 3 {
-				cpu.ClockCycle()
+				cpu.Clock()
 				clockCycle = 0
 			}
 		}
