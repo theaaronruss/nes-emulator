@@ -11,13 +11,12 @@ const (
 )
 
 var cpuRam [cpuRamSize]uint8
-var GamePak *cartridge.Cartridge
 
 func Read(address uint16) uint8 {
 	if address >= cpuRamAddr && address < ppuRegsAddr {
 		return cpuRam[address%cpuRamSize]
-	} else if address >= cartRomAddr && GamePak != nil {
-		return GamePak.ReadProgramData(address - cartRomAddr)
+	} else if address >= cartRomAddr {
+		return cartridge.ReadProgramData(address - cartRomAddr)
 	}
 	return 0x00
 }

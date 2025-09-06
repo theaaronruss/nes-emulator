@@ -9,7 +9,6 @@ import (
 	"github.com/theaaronruss/nes-emulator/internal/cartridge"
 	"github.com/theaaronruss/nes-emulator/internal/cpu"
 	"github.com/theaaronruss/nes-emulator/internal/ppu"
-	"github.com/theaaronruss/nes-emulator/internal/sysbus"
 )
 
 const (
@@ -23,8 +22,7 @@ func main() {
 }
 
 func run() {
-	var err error
-	sysbus.GamePak, err = cartridge.LoadCartridge("nestest.nes")
+	err := cartridge.LoadCartridge("nestest.nes")
 	cpu.Reset()
 	if err != nil {
 		fmt.Println("Failed to load ROM file")

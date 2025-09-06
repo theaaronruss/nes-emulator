@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-var headerStart = [4]byte{0x4E, 0x45, 0x53, 0x1A}
+var headerStart = [...]byte{0x4E, 0x45, 0x53, 0x1A}
 
 const (
 	headerSize     int = 16
@@ -14,49 +14,48 @@ const (
 	prgRomBaseSize int = 16384
 )
 
-type Cartridge struct {
+var (
 	programData   []byte
 	characterData []byte
 
 	prgSize    int
 	chrSize    int
 	hasTrainer bool
-}
+)
 
-func LoadCartridge(filePath string) (*Cartridge, error) {
-	cartridge := &Cartridge{}
+func LoadCartridge(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = cartridge.parseHeader(file)
+	err = parseHeader(file)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if cartridge.hasTrainer {
+	if hasTrainer {
 		file.Seek(int64(trainerSize), io.SeekCurrent)
 	}
 
-	err = cartridge.readProgramData(file)
+	err = readProgramData(file)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = cartridge.readCharacterData(file)
+	err = readCharacterData(file)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return cartridge, nil
+	return nil
 }
 
-func (cart *Cartridge) ReadProgramData(address uint16) uint8 {
-	return cart.programData[address%uint16(prgRomBaseSize)]
+func ReadProgramData(address uint16) uint8 {
+	return programData[address%uint16(prgRomBaseSize)]
 }
 
-func (cart *Cartridge) parseHeader(file *os.File) error {
+func parseHeader(file *os.File) error {
 	buffer := make([]byte, headerSize)
 	n, err := file.Read(buffer)
 	if err != nil {
@@ -72,18 +71,18 @@ func (cart *Cartridge) parseHeader(file *os.File) error {
 		}
 	}
 
-	cart.prgSize = int(buffer[4])
-	cart.chrSize = int(buffer[5])
+	prgSize = int(buffer[4])
+	chrSize = int(buffer[5])
 
 	flags := buffer[6]
-	cart.hasTrainer = flags&0x04 > 0
+	hasTrainer = flags&0x04 > 0
 
 	return nil
 }
 
-func (cart *Cartridge) readProgramData(file *os.File) error {
-	cart.programData = make([]byte, prgRomBaseSize)
-	n, err := file.Read(cart.programData)
+func readProgramData(file *os.File) error {
+	programData = make([]byte, prgRomBaseSize)
+	n, err := file.Read(programData)
 	if err != nil {
 		return err
 	}
@@ -93,13 +92,13 @@ func (cart *Cartridge) readProgramData(file *os.File) error {
 	return nil
 }
 
-func (cart *Cartridge) readCharacterData(file *os.File) error {
-	cart.characterData = make([]byte, cart.chrSize)
-	n, err := file.Read(cart.characterData)
+func readCharacterData(file *os.File) error {
+	characterData = make([]byte, chrSize)
+	n, err := file.Read(characterData)
 	if err != nil {
 		return err
 	}
-	if n < cart.chrSize {
+	if n < chrSize {
 		return errors.New("unexpected end of rom file")
 	}
 	return nil
