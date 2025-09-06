@@ -2,8 +2,13 @@ package ppu
 
 import "math/rand"
 
+const (
+	FrameWidth  int = 256
+	FrameHeight int = 240
+)
+
 var (
-	FrameBuffer   []uint8 = make([]uint8, 4*256*240)
+	FrameBuffer   []uint8 = make([]uint8, 4*FrameWidth*FrameHeight)
 	FrameComplete bool
 	pixelOffset   int
 )
@@ -20,7 +25,7 @@ func Clock() {
 	FrameBuffer[pixelOffset*4+2] = color
 	FrameBuffer[pixelOffset*4+3] = 0xFF
 	pixelOffset++
-	if pixelOffset >= 256*240 {
+	if pixelOffset >= FrameWidth*FrameHeight {
 		pixelOffset = 0
 		FrameComplete = true
 	}

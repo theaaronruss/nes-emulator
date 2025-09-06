@@ -6,21 +6,19 @@ import (
 	"os"
 )
 
-var headerStart = [...]byte{0x4E, 0x45, 0x53, 0x1A}
+var headerSignature = [...]byte{0x4E, 0x45, 0x53, 0x1A}
 
 const (
 	headerSize     int = 16
 	trainerSize    int = 512
 	prgRomBaseSize int = 16384
+	chrRomBaseSize int = 8192
 )
 
 var (
 	programData   []byte
 	characterData []byte
-
-	prgSize    int
-	chrSize    int
-	hasTrainer bool
+	hasTrainer    bool
 )
 
 func LoadCartridge(filePath string) error {
@@ -38,12 +36,12 @@ func LoadCartridge(filePath string) error {
 		file.Seek(int64(trainerSize), io.SeekCurrent)
 	}
 
-	err = readProgramData(file)
+	err = parseProgramData(file)
 	if err != nil {
 		return err
 	}
 
-	err = readCharacterData(file)
+	err = parseCharacterData(file)
 	if err != nil {
 		return err
 	}
@@ -52,11 +50,22 @@ func LoadCartridge(filePath string) error {
 }
 
 func ReadProgramData(address uint16) uint8 {
+	if programData == nil {
+		return 0x00
+	}
 	return programData[address%uint16(prgRomBaseSize)]
+}
+
+func ReadCharacterData(address uint16) uint8 {
+	if characterData == nil {
+		return 0x00
+	}
+	return characterData[address%uint16(chrRomBaseSize)]
 }
 
 func parseHeader(file *os.File) error {
 	buffer := make([]byte, headerSize)
+
 	n, err := file.Read(buffer)
 	if err != nil {
 		return err
@@ -65,14 +74,11 @@ func parseHeader(file *os.File) error {
 		return errors.New("unexpected end of rom file")
 	}
 
-	for i, b := range headerStart {
+	for i, b := range headerSignature {
 		if buffer[i] != b {
 			return errors.New("invalid rom file")
 		}
 	}
-
-	prgSize = int(buffer[4])
-	chrSize = int(buffer[5])
 
 	flags := buffer[6]
 	hasTrainer = flags&0x04 > 0
@@ -80,7 +86,7 @@ func parseHeader(file *os.File) error {
 	return nil
 }
 
-func readProgramData(file *os.File) error {
+func parseProgramData(file *os.File) error {
 	programData = make([]byte, prgRomBaseSize)
 	n, err := file.Read(programData)
 	if err != nil {
@@ -92,13 +98,13 @@ func readProgramData(file *os.File) error {
 	return nil
 }
 
-func readCharacterData(file *os.File) error {
-	characterData = make([]byte, chrSize)
+func parseCharacterData(file *os.File) error {
+	characterData = make([]byte, chrRomBaseSize)
 	n, err := file.Read(characterData)
 	if err != nil {
 		return err
 	}
-	if n < chrSize {
+	if n < chrRomBaseSize {
 		return errors.New("unexpected end of rom file")
 	}
 	return nil

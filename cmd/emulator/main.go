@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/gopxl/pixel/v2"
@@ -22,7 +23,12 @@ func main() {
 }
 
 func run() {
-	err := cartridge.LoadCartridge("nestest.nes")
+	if len(os.Args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: emulator romFile")
+		return
+	}
+
+	err := cartridge.LoadCartridge(os.Args[1])
 	cpu.Reset()
 	if err != nil {
 		fmt.Println("Failed to load ROM file")
@@ -38,7 +44,8 @@ func run() {
 	if err != nil {
 		panic(err)
 	}
-	canvas := opengl.NewCanvas(pixel.R(0, 0, 256, 240))
+	canvas := opengl.NewCanvas(pixel.R(0, 0,
+		float64(ppu.FrameWidth), float64(ppu.FrameHeight)))
 	for !win.Closed() {
 		startTime := time.Now()
 		for !ppu.FrameComplete {
