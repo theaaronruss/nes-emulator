@@ -1,4 +1,4 @@
-package graphics
+package ppu
 
 type color struct {
 	r uint8

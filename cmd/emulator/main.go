@@ -8,7 +8,7 @@ import (
 	"github.com/gopxl/pixel/v2/backends/opengl"
 	"github.com/theaaronruss/nes-emulator/internal/cartridge"
 	"github.com/theaaronruss/nes-emulator/internal/cpu"
-	"github.com/theaaronruss/nes-emulator/internal/graphics"
+	"github.com/theaaronruss/nes-emulator/internal/ppu"
 	"github.com/theaaronruss/nes-emulator/internal/sysbus"
 )
 
@@ -30,7 +30,6 @@ func run() {
 		fmt.Println("Failed to load ROM file")
 		return
 	}
-	ppu := graphics.NewPpu()
 	clockCycle := 0
 
 	cfg := opengl.WindowConfig{
@@ -45,7 +44,7 @@ func run() {
 	for !win.Closed() {
 		startTime := time.Now()
 		for !ppu.FrameComplete {
-			ppu.ClockCycle()
+			ppu.Clock()
 			clockCycle++
 			if clockCycle >= 3 {
 				cpu.Clock()
