@@ -1,6 +1,8 @@
 package cpu
 
-import "github.com/theaaronruss/nes-emulator/internal/sysbus"
+import (
+	"github.com/theaaronruss/nes-emulator/internal/sysbus"
+)
 
 // interrupt vectors
 const (

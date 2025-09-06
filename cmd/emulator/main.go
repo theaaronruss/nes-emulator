@@ -48,7 +48,7 @@ func run() {
 		float64(ppu.FrameWidth), float64(ppu.FrameHeight)))
 	for !win.Closed() {
 		startTime := time.Now()
-		for !ppu.FrameComplete {
+		for !ppu.IsFrameComplete {
 			ppu.Clock()
 			clockCycle++
 			if clockCycle >= 3 {
@@ -57,7 +57,7 @@ func run() {
 			}
 		}
 		canvas.SetPixels(ppu.FrameBuffer)
-		ppu.FrameComplete = false
+		ppu.IsFrameComplete = false
 
 		transformationMatrix := pixel.IM.Scaled(pixel.Vec{}, 2)
 		transformationMatrix = transformationMatrix.Moved(win.Bounds().Center())
