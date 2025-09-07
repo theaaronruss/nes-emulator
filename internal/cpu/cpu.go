@@ -615,7 +615,7 @@ func transferXToA(instr *instruction) {
 }
 
 func transferYToA(instr *instruction) {
-	a = x
+	a = y
 
 	if a == 0 {
 		setFlag(flagZero)
