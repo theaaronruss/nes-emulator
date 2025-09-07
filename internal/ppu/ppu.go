@@ -1,11 +1,16 @@
 package ppu
 
-import "math/rand"
+import (
+	"math/rand"
+
+	"github.com/theaaronruss/nes-emulator/internal/cartridge"
+)
 
 const (
-	FrameWidth     int = 256
-	FrameHeight    int = 240
-	paletteMemSize int = 32
+	FrameWidth       int = 256
+	FrameHeight      int = 240
+	paletteMemSize   int = 32
+	nametableMemSize int = 2048
 )
 
 // increment mode offsets
@@ -56,7 +61,8 @@ var (
 )
 
 var (
-	paletteMem = make([]uint8, paletteMemSize)
+	paletteMem   = make([]uint8, paletteMemSize)
+	nametableMem = make([]uint8, nametableMemSize)
 )
 
 var (
@@ -122,15 +128,23 @@ func Write(address uint16, data uint8) {
 }
 
 func internalRead(address uint16) uint8 {
-	if address >= 0x3F00 && address <= 0x3FFF {
-		offset := address % uint16(paletteMemSize)
+	if address <= 0x1FFF {
+		return cartridge.ReadCharacterData(address)
+	} else if address >= 0x2000 && address <= 0x2FFF {
+		offset := (address - 0x2000) % uint16(nametableMemSize)
+		return nametableMem[offset]
+	} else if address >= 0x3F00 && address <= 0x3FFF {
+		offset := (address - 0x3F00) % uint16(paletteMemSize)
 		return paletteMem[offset]
 	}
 	return 0x00
 }
 
 func internalWrite(address uint16, data uint8) {
-	if address >= 0x3F00 && address <= 0x3FFF {
+	if address >= 0x2000 && address <= 0x2FFF {
+		offset := (address - 0x2000) % uint16(nametableMemSize)
+		nametableMem[offset] = data
+	} else if address >= 0x3F00 && address <= 0x3FFF {
 		offset := address % uint16(paletteMemSize)
 		paletteMem[offset] = data
 	}
