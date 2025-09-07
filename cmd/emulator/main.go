@@ -59,7 +59,10 @@ func run() {
 		canvas.SetPixels(ppu.FrameBuffer)
 		ppu.IsFrameComplete = false
 
-		transformationMatrix := pixel.IM.Scaled(pixel.Vec{}, 2)
+		transformationMatrix := pixel.IM.ScaledXY(
+			pixel.Vec{},
+			pixel.Vec{X: 2, Y: -2},
+		)
 		transformationMatrix = transformationMatrix.Moved(win.Bounds().Center())
 		canvas.Draw(win, transformationMatrix)
 		win.Update()

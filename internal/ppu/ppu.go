@@ -1,8 +1,6 @@
 package ppu
 
 import (
-	"math/rand"
-
 	"github.com/theaaronruss/nes-emulator/internal/cartridge"
 )
 
@@ -58,6 +56,9 @@ var (
 
 	readBuffer      uint8
 	incrementOffset uint16 = incrementHorizontal
+	scanline        int
+	cycle           int
+	vblank          bool
 )
 
 var (
@@ -68,34 +69,60 @@ var (
 var (
 	FrameBuffer     []uint8 = make([]uint8, 4*FrameWidth*FrameHeight)
 	IsFrameComplete bool
-	pixelOffset     int // TODO: remove
 )
 
 func Clock() {
-	// TODO: remove
-	var color uint8
-	if rand.Intn(2) == 1 {
-		color = 0xFF
-	} else {
-		color = 0x00
+	if cycle == 341 {
+		scanline++
+		cycle = 0
 	}
-	FrameBuffer[pixelOffset*4] = color
-	FrameBuffer[pixelOffset*4+1] = color
-	FrameBuffer[pixelOffset*4+2] = color
-	FrameBuffer[pixelOffset*4+3] = 0xFF
-	pixelOffset++
-	if pixelOffset >= FrameWidth*FrameHeight {
-		pixelOffset = 0
+	if scanline == 262 {
+		scanline = 0
 		IsFrameComplete = true
 	}
+	if scanline == 241 && cycle == 1 {
+		vblank = true
+	} else if scanline == 261 && cycle == 1 {
+		vblank = false
+	}
+	if cycle >= FrameWidth || scanline >= FrameHeight {
+		cycle++
+		return
+	}
+
+	tileX := cycle / 8
+	tileY := scanline / 8
+	tileId, _ := getNameTableData(tileX, tileY)
+	spriteX := cycle % 8
+	spriteY := scanline % 8
+	spriteDataAddr := int(tileId)*16 + spriteY
+	spriteData1 := internalRead(uint16(spriteDataAddr))
+	spriteData2 := internalRead(uint16(spriteDataAddr + 8))
+	pixelMask := 1 << (7 - spriteX)
+	spriteData1 &= uint8(pixelMask)
+	spriteData2 &= uint8(pixelMask)
+	spriteData1 >>= (7 - spriteX)
+	spriteData2 >>= (7 - spriteX)
+	paletteId := spriteData1 | spriteData2
+	color := colors[paletteId]
+	frameBufferIndex := (scanline*FrameWidth + cycle) * 4
+	FrameBuffer[frameBufferIndex] = color.r
+	FrameBuffer[frameBufferIndex+1] = color.g
+	FrameBuffer[frameBufferIndex+2] = color.b
+	FrameBuffer[frameBufferIndex+3] = 0xFF
+
+	cycle++
 }
 
 func Read(address uint16) uint8 {
 	switch address {
 	case ppuStatus:
 		w = false
-		// TODO: this is temporarily hardcoded for testing
-		return flagVblank
+		if vblank {
+			return flagVblank
+		} else {
+			return 0x00
+		}
 	case oamData:
 	case ppuData:
 		value := readBuffer
@@ -148,4 +175,9 @@ func internalWrite(address uint16, data uint8) {
 		offset := address % uint16(paletteMemSize)
 		paletteMem[offset] = data
 	}
+}
+
+func getNameTableData(tileX int, tileY int) (uint8, uint8) {
+	offset := tileY*32 + tileX
+	return nametableMem[offset], nametableMem[960+offset/8]
 }
