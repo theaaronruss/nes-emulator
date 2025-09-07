@@ -41,10 +41,14 @@ var (
 var cycleDelay int
 
 func Reset() {
+	a = 0
+	x = 0
+	y = 0
 	sp = initialStackPointer
 	pcLow := sysbus.Read(resetVector)
 	pcHigh := sysbus.Read(resetVector + 1)
 	pc = uint16(pcHigh)<<8 | uint16(pcLow)
+	status = 0
 	setFlag(flagIntDisable)
 	cycleDelay = 0
 }
