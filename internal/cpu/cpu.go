@@ -48,7 +48,7 @@ func Reset() {
 	pcLow := sysbus.Read(resetVector)
 	pcHigh := sysbus.Read(resetVector + 1)
 	pc = uint16(pcHigh)<<8 | uint16(pcLow)
-	status = 0
+	status = 0x24
 	setFlag(flagIntDisable)
 	cycleDelay = 0
 }
@@ -116,12 +116,12 @@ func getAddress(addrMode addressMode) (uint16, bool) {
 		zeroPageAddr := sysbus.Read(pc + 1)
 		zeroPageAddr += x
 		low := sysbus.Read(uint16(zeroPageAddr))
-		high := sysbus.Read(uint16(zeroPageAddr) + 1)
+		high := sysbus.Read(uint16(zeroPageAddr + 1))
 		return uint16(high)<<8 | uint16(low), false
 	case addrModeIndirIndexY:
 		zeroPageAddr := sysbus.Read(pc + 1)
 		low := sysbus.Read(uint16(zeroPageAddr))
-		high := sysbus.Read(uint16(zeroPageAddr) + 1)
+		high := sysbus.Read(uint16(zeroPageAddr + 1))
 		baseAddress := uint16(high)<<8 | uint16(low)
 		address := baseAddress + uint16(y)
 		if baseAddress&0xFF00 == address&0xFF00 {
@@ -136,12 +136,24 @@ func getAddress(addrMode addressMode) (uint16, bool) {
 		high := sysbus.Read(pc + 2)
 		return uint16(high)<<8 | uint16(low), false
 	case addrModeRelative:
-		offset := int8(sysbus.Read(pc))
-		return pc + uint16(offset), false
+		offset := int8(sysbus.Read(pc + 1))
+		address := int16(pc+2) + int16(offset)
+		var pageCrossed bool
+		if (pc+2)&0xFF00 != uint16(address)&0xFF00 {
+			pageCrossed = true
+		} else {
+			pageCrossed = false
+		}
+		return uint16(address), pageCrossed
 	case addrModeIndirect:
 		address, _ := getAddress(addrModeAbsolute)
 		low := sysbus.Read(address)
-		high := sysbus.Read(address + 1)
+		var high uint8
+		if address&0x00FF == 0x00FF {
+			high = sysbus.Read(address & 0xFF00)
+		} else {
+			high = sysbus.Read(address + 1)
+		}
 		return uint16(high)<<8 | uint16(low), false
 	}
 	return 0x0000, false
@@ -165,6 +177,7 @@ func returnFromInterrupt(instr *instruction) {
 	low := stackPop()
 	high := stackPop()
 	status = flags & 0b11001111
+	status |= flagUnused
 	pc = uint16(high)<<8 | uint16(low)
 }
 
@@ -187,6 +200,7 @@ func bitTest(instr *instruction) {
 	} else {
 		clearFlag(flagNegative)
 	}
+	pc += uint16(instr.bytes)
 }
 
 func bitwiseOr(instr *instruction) {
@@ -342,6 +356,7 @@ func rotateLeft(instr *instruction) {
 		value = sysbus.Read(address)
 	}
 
+	carry := testFlag(flagCarry)
 	if value&0x80 > 0 {
 		setFlag(flagCarry)
 	} else {
@@ -350,7 +365,7 @@ func rotateLeft(instr *instruction) {
 
 	value <<= 1
 
-	if testFlag(flagCarry) {
+	if carry {
 		value |= 0x01
 	}
 
@@ -385,6 +400,7 @@ func rotateRight(instr *instruction) {
 		value = sysbus.Read(address)
 	}
 
+	carry := testFlag(flagCarry)
 	if value&0x01 > 0 {
 		setFlag(flagCarry)
 	} else {
@@ -393,7 +409,7 @@ func rotateRight(instr *instruction) {
 
 	value >>= 1
 
-	if testFlag(flagCarry) {
+	if carry {
 		value |= 0x80
 	}
 
@@ -426,6 +442,7 @@ func pushProcessorStatus(instr *instruction) {
 func pullProcessorStatus(instr *instruction) {
 	flags := stackPop()
 	status = flags & 0b11001111
+	status |= flagUnused
 	pc += uint16(instr.bytes)
 }
 
@@ -639,6 +656,16 @@ func transferXToStackPointer(instr *instruction) {
 
 func transferStackPointerToX(instr *instruction) {
 	x = sp
+	if x == 0 {
+		setFlag(flagZero)
+	} else {
+		clearFlag(flagZero)
+	}
+	if x&0x80 > 0 {
+		setFlag(flagNegative)
+	} else {
+		clearFlag(flagNegative)
+	}
 	pc += uint16(instr.bytes)
 }
 
@@ -884,9 +911,8 @@ func branchIfPlus(instr *instruction) {
 		pc += uint16(instr.bytes)
 		return
 	}
-	pc++
 	address, pageCrossed := getAddress(instr.addrMode)
-	pc = address + 1
+	pc = address
 
 	cycleDelay++
 	if pageCrossed {
@@ -899,9 +925,8 @@ func branchIfMinus(instr *instruction) {
 		pc += uint16(instr.bytes)
 		return
 	}
-	pc++
 	address, pageCrossed := getAddress(instr.addrMode)
-	pc = address + 1
+	pc = address
 
 	cycleDelay++
 	if pageCrossed {
@@ -914,9 +939,8 @@ func branchIfEqual(instr *instruction) {
 		pc += uint16(instr.bytes)
 		return
 	}
-	pc++
 	address, pageCrossed := getAddress(instr.addrMode)
-	pc = address + 1
+	pc = address
 
 	cycleDelay++
 	if pageCrossed {
@@ -929,9 +953,8 @@ func branchIfNotEqual(instr *instruction) {
 		pc += uint16(instr.bytes)
 		return
 	}
-	pc++
 	address, pageCrossed := getAddress(instr.addrMode)
-	pc = address + 1
+	pc = address
 
 	cycleDelay++
 	if pageCrossed {
@@ -944,9 +967,8 @@ func branchIfCarrySet(instr *instruction) {
 		pc += uint16(instr.bytes)
 		return
 	}
-	pc++
 	address, pageCrossed := getAddress(instr.addrMode)
-	pc = address + 1
+	pc = address
 
 	cycleDelay++
 	if pageCrossed {
@@ -959,9 +981,8 @@ func branchIfCarryClear(instr *instruction) {
 		pc += uint16(instr.bytes)
 		return
 	}
-	pc++
 	address, pageCrossed := getAddress(instr.addrMode)
-	pc = address + 1
+	pc = address
 
 	cycleDelay++
 	if pageCrossed {
@@ -974,9 +995,8 @@ func branchIfOverflowSet(instr *instruction) {
 		pc += uint16(instr.bytes)
 		return
 	}
-	pc++
 	address, pageCrossed := getAddress(instr.addrMode)
-	pc = address + 1
+	pc = address
 
 	cycleDelay++
 	if pageCrossed {
@@ -989,9 +1009,8 @@ func branchIfOverflowClear(instr *instruction) {
 		pc += uint16(instr.bytes)
 		return
 	}
-	pc++
 	address, pageCrossed := getAddress(instr.addrMode)
-	pc = address + 1
+	pc = address
 
 	cycleDelay++
 	if pageCrossed {
@@ -1059,7 +1078,7 @@ func addWithCarry(instr *instruction) {
 		clearFlag(flagCarry)
 	}
 
-	if result == 0 {
+	if uint8(result) == 0 {
 		setFlag(flagZero)
 	} else {
 		clearFlag(flagZero)
@@ -1129,5 +1148,262 @@ func subtractWithCarry(instr *instruction) {
 }
 
 func noOperation(instr *instruction) {
+	pc += uint16(instr.bytes)
+}
+
+func illegalNoOperation(instr *instruction) {
+	pc += uint16(instr.bytes)
+	if instr.addrMode == addrModeAbsoluteX {
+		_, pageCrossed := getAddress(instr.addrMode)
+		if pageCrossed {
+			cycleDelay++
+		}
+	}
+}
+
+func illegalLoadALoadX(instr *instruction) {
+	address, pageCrossed := getAddress(instr.addrMode)
+	value := sysbus.Read(address)
+
+	a = value
+	x = value
+
+	if value == 0 {
+		setFlag(flagZero)
+	} else {
+		clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
+		setFlag(flagNegative)
+	} else {
+		clearFlag(flagNegative)
+	}
+
+	if pageCrossed && (instr.addrMode == addrModeAbsoluteY ||
+		instr.addrMode == addrModeIndirIndexY) {
+		cycleDelay++
+	}
+	pc += uint16(instr.bytes)
+}
+
+func illegalStoreAAndX(instr *instruction) {
+	address, _ := getAddress(instr.addrMode)
+	value := a & x
+	sysbus.Write(address, value)
+	pc += uint16(instr.bytes)
+}
+
+func illegalDecrementAndCompare(instr *instruction) {
+	address, _ := getAddress(instr.addrMode)
+	value := sysbus.Read(address)
+	value--
+	sysbus.Write(address, value)
+
+	diff := a - value
+
+	if diff == 0 {
+		setFlag(flagZero)
+	} else {
+		clearFlag(flagZero)
+	}
+
+	if diff&0x80 > 0 {
+		setFlag(flagNegative)
+	} else {
+		clearFlag(flagNegative)
+	}
+
+	if a >= value {
+		setFlag(flagCarry)
+	} else {
+		clearFlag(flagCarry)
+	}
+
+	pc += uint16(instr.bytes)
+}
+
+func illegalIncrementSubtractWithCarry(instr *instruction) {
+	address, _ := getAddress(instr.addrMode)
+	value := sysbus.Read(address)
+
+	value++
+	sysbus.Write(address, value)
+
+	diff := int16(a) - int16(value)
+	if !testFlag(flagCarry) {
+		diff--
+	}
+
+	if diff >= 0 {
+		setFlag(flagCarry)
+	} else {
+		clearFlag(flagCarry)
+	}
+
+	if diff == 0 {
+		setFlag(flagZero)
+	} else {
+		clearFlag(flagZero)
+	}
+
+	if (uint8(diff)^a)&(uint8(diff)^^value)&0x80 > 0 {
+		setFlag(flagOverflow)
+	} else {
+		clearFlag(flagOverflow)
+	}
+
+	if diff&0x80 > 0 {
+		setFlag(flagNegative)
+	} else {
+		clearFlag(flagNegative)
+	}
+
+	a = uint8(diff)
+	pc += uint16(instr.bytes)
+}
+
+func illegalArithmeticShiftLeftAndBitwiseOr(instr *instruction) {
+	address, _ := getAddress(instr.addrMode)
+	value := sysbus.Read(address)
+
+	if value&0x80 > 0 {
+		setFlag(flagCarry)
+	} else {
+		clearFlag(flagCarry)
+	}
+
+	value <<= 1
+	sysbus.Write(address, value)
+
+	a |= value
+
+	if a == 0 {
+		setFlag(flagZero)
+	} else {
+		clearFlag(flagZero)
+	}
+
+	if a&0x80 > 0 {
+		setFlag(flagNegative)
+	} else {
+		clearFlag(flagNegative)
+	}
+
+	pc += uint16(instr.bytes)
+}
+
+func illegalRotateLeftAndBitwiseAnd(instr *instruction) {
+	address, _ := getAddress(instr.addrMode)
+	value := sysbus.Read(address)
+
+	carry := testFlag(flagCarry)
+	if value&0x80 > 0 {
+		setFlag(flagCarry)
+	} else {
+		clearFlag(flagCarry)
+	}
+
+	value <<= 1
+
+	if carry {
+		value |= 0x01
+	}
+
+	sysbus.Write(address, value)
+
+	a &= value
+
+	if a == 0 {
+		setFlag(flagZero)
+	} else {
+		clearFlag(flagZero)
+	}
+
+	if a&0x80 > 0 {
+		setFlag(flagNegative)
+	} else {
+		clearFlag(flagNegative)
+	}
+
+	pc += uint16(instr.bytes)
+}
+
+func illegalLogicalShiftRightAndBitwiseXor(instr *instruction) {
+	address, _ := getAddress(instr.addrMode)
+	value := sysbus.Read(address)
+
+	if value&0x01 > 0 {
+		setFlag(flagCarry)
+	} else {
+		clearFlag(flagCarry)
+	}
+
+	value >>= 1
+	sysbus.Write(address, value)
+	a ^= value
+
+	if a == 0 {
+		setFlag(flagZero)
+	} else {
+		clearFlag(flagZero)
+	}
+
+	if a&0x80 > 0 {
+		setFlag(flagNegative)
+	} else {
+		clearFlag(flagNegative)
+	}
+
+	pc += uint16(instr.bytes)
+}
+
+func illegalRotateRightAndAddWithCarry(instr *instruction) {
+	address, _ := getAddress(instr.addrMode)
+	value := sysbus.Read(address)
+
+	carry := testFlag(flagCarry)
+	if value&0x01 > 0 {
+		setFlag(flagCarry)
+	} else {
+		clearFlag(flagCarry)
+	}
+	value >>= 1
+	if carry {
+		value |= 0x80
+	}
+
+	sysbus.Write(address, value)
+
+	result := uint16(a) + uint16(value)
+	if testFlag(flagCarry) {
+		result++
+	}
+
+	if result > 255 {
+		setFlag(flagCarry)
+	} else {
+		clearFlag(flagCarry)
+	}
+
+	if uint8(result) == 0 {
+		setFlag(flagZero)
+	} else {
+		clearFlag(flagZero)
+	}
+
+	if (uint8(result)^a)&(uint8(result)^value)&0x80 > 0 {
+		setFlag(flagOverflow)
+	} else {
+		clearFlag(flagOverflow)
+	}
+
+	if result&0x80 > 0 {
+		setFlag(flagNegative)
+	} else {
+		clearFlag(flagNegative)
+	}
+
+	a = uint8(result)
 	pc += uint16(instr.bytes)
 }
