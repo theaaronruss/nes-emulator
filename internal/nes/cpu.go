@@ -78,6 +78,8 @@ func (cpu *Cpu) mustGetAddress(addrMode addressMode) (uint16, bool) {
 		return cpu.getAbsoluteAddress(), false
 	case addrModeRelative:
 		return cpu.getRelativeAddress()
+	case addrModeIndirect:
+		return cpu.getIndirectAddress(), false
 	}
 	panic("invalid address mode")
 }
@@ -102,4 +104,21 @@ func (cpu *Cpu) getRelativeAddress() (uint16, bool) {
 	} else {
 		return address, false
 	}
+}
+
+func (cpu *Cpu) getIndirectAddress() uint16 {
+	jumpAddress := cpu.getAbsoluteAddress()
+	low := cpu.bus.Read(jumpAddress)
+
+	// the 6502 has a bug where it wraps incorrectly if the jump address is at
+	// a page boundary
+	var high uint8
+	if jumpAddress&0x00FF == 0x00FF {
+		high = cpu.bus.Read(jumpAddress & 0xFF00)
+	} else {
+		high = cpu.bus.Read(jumpAddress + 1)
+	}
+
+	address := uint16(high)<<8 | uint16(low)
+	return address
 }

@@ -90,3 +90,31 @@ func TestGetRelativeAddress(t *testing.T) {
 		})
 	}
 }
+
+func TestGetIndirectAddress(t *testing.T) {
+	bus := newFakeSysBus()
+	bus.data[0xFFFC] = 0x00
+	bus.data[0xFFFD] = 0x06
+	bus.data[0x0601] = 0x5A
+	bus.data[0x0602] = 0x82
+	bus.data[0x825A] = 0x34
+	bus.data[0x825B] = 0x12
+	cpu := NewCpu(bus)
+	actual := cpu.getIndirectAddress()
+	if actual != 0x1234 {
+		t.Errorf("basic jump: expected address 0x1234, got 0x%X", actual)
+	}
+
+	bus = newFakeSysBus()
+	bus.data[0xFFFC] = 0x00
+	bus.data[0xFFFD] = 0x06
+	bus.data[0x0601] = 0xFF
+	bus.data[0x0602] = 0x30
+	bus.data[0x30FF] = 0x34
+	bus.data[0x3000] = 0x12
+	cpu = NewCpu(bus)
+	actual = cpu.getIndirectAddress()
+	if actual != 0x1234 {
+		t.Errorf("boundary jump: expected address 0x1234, got 0x%X", actual)
+	}
+}
