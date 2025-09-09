@@ -88,6 +88,10 @@ func (cpu *Cpu) mustGetAddress(addrMode addressMode) (uint16, bool) {
 		return cpu.getRelativeAddress()
 	case addrModeIndirect:
 		return cpu.getIndirectAddress(), false
+	case addrModeIndexedIndir:
+		return cpu.getIndexedIndirectAddress(cpu.x), false
+	case addrModeIndirIndexed:
+		return cpu.getIndirectIndexedAddress(cpu.y)
 	}
 	panic("invalid address mode")
 }
@@ -145,4 +149,25 @@ func (cpu *Cpu) getIndirectAddress() uint16 {
 
 	address := uint16(high)<<8 | uint16(low)
 	return address
+}
+
+func (cpu *Cpu) getIndexedIndirectAddress(offset uint8) uint16 {
+	zeroPageAddr := cpu.bus.Read(cpu.pc + 1)
+	zeroPageAddr += offset
+	low := cpu.bus.Read(uint16(zeroPageAddr))
+	high := cpu.bus.Read(uint16(zeroPageAddr + 1))
+	return uint16(high)<<8 | uint16(low)
+}
+
+func (cpu *Cpu) getIndirectIndexedAddress(offset uint8) (uint16, bool) {
+	zeroPageAddr := cpu.bus.Read(cpu.pc + 1)
+	low := cpu.bus.Read(uint16(zeroPageAddr))
+	high := cpu.bus.Read(uint16(zeroPageAddr + 1))
+	address := uint16(high)<<8 | uint16(low)
+	offsetAddress := address + uint16(offset)
+	if address&0xFF00 != offsetAddress&0xFF00 {
+		return offsetAddress, true
+	} else {
+		return offsetAddress, false
+	}
 }

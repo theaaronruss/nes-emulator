@@ -58,7 +58,7 @@ func TestGetZeroPageOffsetAddress(t *testing.T) {
 			cpu := NewCpu(bus)
 			actual := cpu.getZeroPageOffsetAddress(test.offset)
 			if actual != test.expected {
-				t.Errorf("%s: expected address 0x%X, got 0x%X", test.name,
+				t.Errorf("%s: expected address 0x%X, got 0x%X", t.Name(),
 					test.expected, actual)
 			}
 		})
@@ -111,11 +111,11 @@ func TestGetAbsoluteOffsetAddress(t *testing.T) {
 		cpu := NewCpu(bus)
 		actual, actualPageCrossed := cpu.getAbsoluteOffsetAddress(test.offset)
 		if actual != test.expected {
-			t.Errorf("%s: expected address 0x%X, got 0x%X", test.name,
+			t.Errorf("%s: expected address 0x%X, got 0x%X", t.Name(),
 				test.expected, actual)
 		}
 		if actualPageCrossed != test.pageCrossed {
-			t.Errorf("%s: expected page crossed to be %t, got %t", test.name,
+			t.Errorf("%s: expected page crossed to be %t, got %t", t.Name(),
 				test.pageCrossed, actualPageCrossed)
 		}
 	}
@@ -156,11 +156,11 @@ func TestGetRelativeAddress(t *testing.T) {
 			cpu := NewCpu(bus)
 			actual, actualPageCrossed := cpu.getRelativeAddress()
 			if actual != test.expected {
-				t.Errorf("%s: expected address 0x%X, got 0x%X", test.name,
+				t.Errorf("%s: expected address 0x%X, got 0x%X", t.Name(),
 					test.expected, actual)
 			}
 			if actualPageCrossed != test.pageCrossed {
-				t.Errorf("%s: expected page crossed to be %t, got %t", test.name,
+				t.Errorf("%s: expected page crossed to be %t, got %t", t.Name(),
 					test.pageCrossed, actualPageCrossed)
 			}
 		})
@@ -168,29 +168,99 @@ func TestGetRelativeAddress(t *testing.T) {
 }
 
 func TestGetIndirectAddress(t *testing.T) {
-	bus := newFakeSysBus()
-	bus.data[0xFFFC] = 0x00
-	bus.data[0xFFFD] = 0x06
-	bus.data[0x0601] = 0x5A
-	bus.data[0x0602] = 0x82
-	bus.data[0x825A] = 0x34
-	bus.data[0x825B] = 0x12
-	cpu := NewCpu(bus)
-	actual := cpu.getIndirectAddress()
-	if actual != 0x1234 {
-		t.Errorf("basic jump: expected address 0x1234, got 0x%X", actual)
-	}
+	t.Run("basic jump", func(t *testing.T) {
+		bus := newFakeSysBus()
+		bus.data[0xFFFC] = 0x00
+		bus.data[0xFFFD] = 0x06
+		bus.data[0x0601] = 0x5A
+		bus.data[0x0602] = 0x82
+		bus.data[0x825A] = 0x34
+		bus.data[0x825B] = 0x12
+		cpu := NewCpu(bus)
+		actual := cpu.getIndirectAddress()
+		if actual != 0x1234 {
+			t.Errorf("basic jump: expected address 0x1234, got 0x%X", actual)
+		}
+	})
 
-	bus = newFakeSysBus()
-	bus.data[0xFFFC] = 0x00
-	bus.data[0xFFFD] = 0x06
-	bus.data[0x0601] = 0xFF
-	bus.data[0x0602] = 0x30
-	bus.data[0x30FF] = 0x34
-	bus.data[0x3000] = 0x12
-	cpu = NewCpu(bus)
-	actual = cpu.getIndirectAddress()
-	if actual != 0x1234 {
-		t.Errorf("boundary jump: expected address 0x1234, got 0x%X", actual)
-	}
+	t.Run("boundary jump", func(t *testing.T) {
+		bus := newFakeSysBus()
+		bus.data[0xFFFC] = 0x00
+		bus.data[0xFFFD] = 0x06
+		bus.data[0x0601] = 0xFF
+		bus.data[0x0602] = 0x30
+		bus.data[0x30FF] = 0x34
+		bus.data[0x3000] = 0x12
+		cpu := NewCpu(bus)
+		actual := cpu.getIndirectAddress()
+		if actual != 0x1234 {
+			t.Errorf("boundary jump: expected address 0x1234, got 0x%X", actual)
+		}
+	})
+}
+
+func TestGetIndexedIndirectAddress(t *testing.T) {
+	t.Run("zero page", func(t *testing.T) {
+		bus := newFakeSysBus()
+		bus.data[0xFFFC] = 0x00
+		bus.data[0xFFFD] = 0x06
+		bus.data[0x0601] = 0x80
+		bus.data[0x0088] = 0x34
+		bus.data[0x0089] = 0x12
+		cpu := NewCpu(bus)
+		actual := cpu.getIndexedIndirectAddress(0x08)
+		if actual != 0x1234 {
+			t.Errorf("zero page: expected address 0x1234, got 0x%X", actual)
+		}
+	})
+
+	t.Run("page cross", func(t *testing.T) {
+		bus := newFakeSysBus()
+		bus.data[0xFFFC] = 0x00
+		bus.data[0xFFFD] = 0x06
+		bus.data[0x0601] = 0xF0
+		bus.data[0x00FF] = 0x34
+		bus.data[0x0000] = 0x12
+		cpu := NewCpu(bus)
+		actual := cpu.getIndexedIndirectAddress(0x0F)
+		if actual != 0x1234 {
+			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
+		}
+	})
+}
+
+func TestGetIndirectIndexedAddress(t *testing.T) {
+	t.Run("same page", func(t *testing.T) {
+		bus := newFakeSysBus()
+		bus.data[0xFFFC] = 0x00
+		bus.data[0xFFFD] = 0x06
+		bus.data[0x0601] = 0x4B
+		bus.data[0x4B] = 0x26
+		bus.data[0x4C] = 0x12
+		cpu := NewCpu(bus)
+		actual, pageCrossed := cpu.getIndirectIndexedAddress(0x0E)
+		if actual != 0x1234 {
+			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
+		}
+		if pageCrossed {
+			t.Errorf("%s: expected no page cross, got page crossed true", t.Name())
+		}
+	})
+
+	t.Run("page cross", func(t *testing.T) {
+		bus := newFakeSysBus()
+		bus.data[0xFFFC] = 0x00
+		bus.data[0xFFFD] = 0x06
+		bus.data[0x0601] = 0x4B
+		bus.data[0x4B] = 0xF0
+		bus.data[0x4C] = 0xA2
+		cpu := NewCpu(bus)
+		actual, pageCrossed := cpu.getIndirectIndexedAddress(0x23)
+		if actual != 0xA313 {
+			t.Errorf("same page: expected address 0xA313, got 0x%X", actual)
+		}
+		if !pageCrossed {
+			t.Errorf("%s: expected page cross, got page crossed false", t.Name())
+		}
+	})
 }

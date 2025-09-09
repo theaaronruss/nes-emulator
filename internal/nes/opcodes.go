@@ -1,6 +1,5 @@
 package nes
 
-// addressing modes
 type addressMode int
 
 const (
@@ -8,8 +7,8 @@ const (
 	addrModeZeroPageY
 	addrModeAbsoluteX
 	addrModeAbsoluteY
-	addrModeIndexIndirX
-	addrModeIndirIndexY
+	addrModeIndexedIndir
+	addrModeIndirIndexed
 	addrModeImplied
 	addrModeAccumulator
 	addrModeImmediate
