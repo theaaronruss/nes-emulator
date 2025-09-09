@@ -89,6 +89,18 @@ func (cpu *Cpu) getZeroPageAddress() uint16 {
 	return uint16(address)
 }
 
+func (cpu *Cpu) getZeroPageXAddress() uint16 {
+	zeroPageAddr := cpu.bus.Read(cpu.pc + 1)
+	zeroPageAddr += cpu.x
+	return uint16(zeroPageAddr)
+}
+
+func (cpu *Cpu) getZeroPageYAddress() uint16 {
+	zeroPageAddr := cpu.bus.Read(cpu.pc + 1)
+	zeroPageAddr += cpu.y
+	return uint16(zeroPageAddr)
+}
+
 func (cpu *Cpu) getAbsoluteAddress() uint16 {
 	low := cpu.bus.Read(cpu.pc + 1)
 	high := cpu.bus.Read(cpu.pc + 2)
