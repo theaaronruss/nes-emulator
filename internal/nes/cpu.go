@@ -70,10 +70,14 @@ func (cpu *Cpu) stackPop() uint8 {
 	return cpu.bus.Read(address)
 }
 
-func (cpu *Cpu) mustGetAddress(addrMode addressMode) uint16 {
+func (cpu *Cpu) mustGetAddress(addrMode addressMode) (uint16, bool) {
 	switch addrMode {
 	case addrModeZeroPage:
-		return cpu.getZeroPageAddress()
+		return cpu.getZeroPageAddress(), false
+	case addrModeAbsolute:
+		return cpu.getAbsoluteAddress(), false
+	case addrModeRelative:
+		return cpu.getRelativeAddress()
 	}
 	panic("invalid address mode")
 }
@@ -87,4 +91,15 @@ func (cpu *Cpu) getAbsoluteAddress() uint16 {
 	low := cpu.bus.Read(cpu.pc + 1)
 	high := cpu.bus.Read(cpu.pc + 2)
 	return uint16(high)<<8 | uint16(low)
+}
+
+func (cpu *Cpu) getRelativeAddress() (uint16, bool) {
+	offset := int8(cpu.bus.Read(cpu.pc + 1))
+	offsetAddress := int16(cpu.pc+2) + int16(offset)
+	address := uint16(offsetAddress)
+	if (cpu.pc+2)&0xFF00 != address&0xFF00 {
+		return address, true
+	} else {
+		return address, false
+	}
 }
