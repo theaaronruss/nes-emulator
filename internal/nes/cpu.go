@@ -74,8 +74,16 @@ func (cpu *Cpu) mustGetAddress(addrMode addressMode) (uint16, bool) {
 	switch addrMode {
 	case addrModeZeroPage:
 		return cpu.getZeroPageAddress(), false
+	case addrModeZeroPageX:
+		return cpu.getZeroPageOffsetAddress(cpu.x), false
+	case addrModeZeroPageY:
+		return cpu.getZeroPageOffsetAddress(cpu.y), false
 	case addrModeAbsolute:
 		return cpu.getAbsoluteAddress(), false
+	case addrModeAbsoluteX:
+		return cpu.getAbsoluteOffsetAddress(cpu.x)
+	case addrModeAbsoluteY:
+		return cpu.getAbsoluteOffsetAddress(cpu.y)
 	case addrModeRelative:
 		return cpu.getRelativeAddress()
 	case addrModeIndirect:
@@ -89,15 +97,9 @@ func (cpu *Cpu) getZeroPageAddress() uint16 {
 	return uint16(address)
 }
 
-func (cpu *Cpu) getZeroPageXAddress() uint16 {
+func (cpu *Cpu) getZeroPageOffsetAddress(offset uint8) uint16 {
 	zeroPageAddr := cpu.bus.Read(cpu.pc + 1)
-	zeroPageAddr += cpu.x
-	return uint16(zeroPageAddr)
-}
-
-func (cpu *Cpu) getZeroPageYAddress() uint16 {
-	zeroPageAddr := cpu.bus.Read(cpu.pc + 1)
-	zeroPageAddr += cpu.y
+	zeroPageAddr += offset
 	return uint16(zeroPageAddr)
 }
 
@@ -105,6 +107,16 @@ func (cpu *Cpu) getAbsoluteAddress() uint16 {
 	low := cpu.bus.Read(cpu.pc + 1)
 	high := cpu.bus.Read(cpu.pc + 2)
 	return uint16(high)<<8 | uint16(low)
+}
+
+func (cpu *Cpu) getAbsoluteOffsetAddress(offset uint8) (uint16, bool) {
+	address := cpu.getAbsoluteAddress()
+	offsetAddress := address + uint16(offset)
+	if address&0xFF00 != offsetAddress&0xFF00 {
+		return offsetAddress, true
+	} else {
+		return offsetAddress, false
+	}
 }
 
 func (cpu *Cpu) getRelativeAddress() (uint16, bool) {

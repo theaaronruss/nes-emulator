@@ -32,6 +32,39 @@ func TestGetZeroPageAddress(t *testing.T) {
 	}
 }
 
+func TestGetZeroPageOffsetAddress(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    uint8
+		offset   uint8
+		expected uint16
+	}{
+		{
+			name:  "basic zero page",
+			input: 0x3A, offset: 0x18, expected: 0x52,
+		},
+		{
+			name:  "wrap around",
+			input: 0xF8, offset: 0x0F, expected: 0x07,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0xFFFC] = 0x00
+			bus.data[0xFFFD] = 0x06
+			bus.data[0x0601] = test.input
+			cpu := NewCpu(bus)
+			actual := cpu.getZeroPageOffsetAddress(test.offset)
+			if actual != test.expected {
+				t.Errorf("%s: expected address 0x%X, got 0x%X", test.name,
+					test.expected, actual)
+			}
+		})
+	}
+}
+
 func TestGetAbsoluteAddress(t *testing.T) {
 	bus := newFakeSysBus()
 	bus.data[0xFFFC] = 0x00
@@ -42,6 +75,49 @@ func TestGetAbsoluteAddress(t *testing.T) {
 	actual := cpu.getAbsoluteAddress()
 	if actual != 0xC325 {
 		t.Errorf("expected address 0xC325, got 0x%X", actual)
+	}
+}
+
+func TestGetAbsoluteOffsetAddress(t *testing.T) {
+	tests := []struct {
+		name        string
+		offset      uint8
+		input       uint16
+		expected    uint16
+		pageCrossed bool
+	}{
+		{
+			name:        "no page cross",
+			offset:      0x15,
+			input:       0x8AB3,
+			expected:    0x8AC8,
+			pageCrossed: false,
+		},
+		{
+			name:        "page cross",
+			offset:      0x5F,
+			input:       0x8AE5,
+			expected:    0x8B44,
+			pageCrossed: true,
+		},
+	}
+
+	for _, test := range tests {
+		bus := newFakeSysBus()
+		bus.data[0xFFFC] = 0x00
+		bus.data[0xFFFD] = 0x06
+		bus.data[0x0601] = uint8(test.input & 0x00FF)
+		bus.data[0x0602] = uint8(test.input & 0xFF00 >> 8)
+		cpu := NewCpu(bus)
+		actual, actualPageCrossed := cpu.getAbsoluteOffsetAddress(test.offset)
+		if actual != test.expected {
+			t.Errorf("%s: expected address 0x%X, got 0x%X", test.name,
+				test.expected, actual)
+		}
+		if actualPageCrossed != test.pageCrossed {
+			t.Errorf("%s: expected page crossed to be %t, got %t", test.name,
+				test.pageCrossed, actualPageCrossed)
+		}
 	}
 }
 
@@ -116,71 +192,5 @@ func TestGetIndirectAddress(t *testing.T) {
 	actual = cpu.getIndirectAddress()
 	if actual != 0x1234 {
 		t.Errorf("boundary jump: expected address 0x1234, got 0x%X", actual)
-	}
-}
-
-func TestGetZeroPageXAddress(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    uint8
-		x        uint8
-		expected uint16
-	}{
-		{
-			name:  "basic zero page",
-			input: 0x3A, x: 0x18, expected: 0x52,
-		},
-		{
-			name:  "wrap around",
-			input: 0xF8, x: 0x0F, expected: 0x07,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			bus := newFakeSysBus()
-			bus.data[0xFFFC] = 0x00
-			bus.data[0xFFFD] = 0x06
-			bus.data[0x0601] = test.input
-			cpu := NewCpu(bus)
-			cpu.x = test.x
-			actual := cpu.getZeroPageXAddress()
-			if actual != test.expected {
-				t.Errorf("%s: expected address 0x%X, got 0x%X", test.name,
-					test.expected, actual)
-			}
-		})
-	}
-}
-
-func TestGetZeroPageYAddress(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    uint8
-		y        uint8
-		expected uint16
-	}{
-		{
-			name:  "basic zero page",
-			input: 0x3A, y: 0x18, expected: 0x52,
-		},
-		{
-			name:  "wrap around",
-			input: 0xF8, y: 0x0F, expected: 0x07,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			bus := newFakeSysBus()
-			bus.data[0xFFFC] = 0x00
-			bus.data[0xFFFD] = 0x06
-			bus.data[0x0601] = test.input
-			cpu := NewCpu(bus)
-			cpu.y = test.y
-			actual := cpu.getZeroPageYAddress()
-			if actual != test.expected {
-				t.Errorf("%s: expected address 0x%X, got 0x%X", test.name,
-					test.expected, actual)
-			}
-		})
 	}
 }
