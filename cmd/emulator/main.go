@@ -10,6 +10,7 @@ import (
 	"github.com/theaaronruss/nes-emulator/internal/cartridge"
 	"github.com/theaaronruss/nes-emulator/internal/cpu"
 	"github.com/theaaronruss/nes-emulator/internal/ppu"
+	"github.com/theaaronruss/nes-emulator/internal/sysbus"
 )
 
 const (
@@ -44,6 +45,7 @@ func run() {
 	if err != nil {
 		panic(err)
 	}
+	sysbus.Window = win
 	canvas := opengl.NewCanvas(pixel.R(0, 0,
 		float64(ppu.FrameWidth), float64(ppu.FrameHeight)))
 	for !win.Closed() {
