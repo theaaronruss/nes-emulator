@@ -59,6 +59,7 @@ var (
 	scanline        int
 	cycle           int
 	vblank          bool
+	HandleVblank    bool
 )
 
 var (
@@ -82,6 +83,7 @@ func Clock() {
 	}
 	if scanline == 241 && cycle == 1 {
 		vblank = true
+		HandleVblank = true
 	} else if scanline == 261 && cycle == 1 {
 		vblank = false
 	}

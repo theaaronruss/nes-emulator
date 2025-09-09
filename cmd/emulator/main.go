@@ -50,6 +50,10 @@ func run() {
 		startTime := time.Now()
 		for !ppu.IsFrameComplete {
 			ppu.Clock()
+			if ppu.HandleVblank {
+				cpu.Nmi()
+				ppu.HandleVblank = false
+			}
 			clockCycle++
 			if clockCycle >= 3 {
 				cpu.Clock()

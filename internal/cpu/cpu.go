@@ -38,7 +38,11 @@ var (
 	status uint8
 )
 
-var cycleDelay int
+var (
+	cycleDelay int
+	nmi        bool
+	irq        bool
+)
 
 func Reset() {
 	a = 0
@@ -54,6 +58,28 @@ func Reset() {
 }
 
 func Clock() {
+	if nmi && cycleDelay == 0 {
+		stackPush(uint8(pc & 0xFF00 >> 8))
+		stackPush(uint8(pc & 0x00FF))
+		stackPush(status & ^flagBreak)
+		setFlag(flagIntDisable)
+		low := sysbus.Read(nmiVector)
+		high := sysbus.Read(nmiVector + 1)
+		pc = uint16(high)<<8 | uint16(low)
+		nmi = false
+	}
+
+	if irq && !testFlag(flagIntDisable) && cycleDelay == 0 {
+		stackPush(uint8(pc & 0xFF00 >> 8))
+		stackPush(uint8(pc & 0x00FF))
+		stackPush(status & ^flagBreak)
+		setFlag(flagIntDisable)
+		low := sysbus.Read(irqVector)
+		high := sysbus.Read(irqVector + 1)
+		pc = uint16(high)<<8 | uint16(low)
+		irq = false
+	}
+
 	if cycleDelay <= 0 {
 		opcode := sysbus.Read(pc)
 		instruction := opcodes[opcode]
@@ -62,6 +88,14 @@ func Clock() {
 		return
 	}
 	cycleDelay--
+}
+
+func Irq() {
+	irq = true
+}
+
+func Nmi() {
+	nmi = true
 }
 
 func setFlag(flag uint8) {
