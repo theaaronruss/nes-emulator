@@ -184,6 +184,34 @@ func (cpu *Cpu) getIndirectIndexedAddress(offset uint8) (uint16, bool) {
 	}
 }
 
+// bitwise and
+func (cpu *Cpu) and(instr *instruction, pc uint16) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, pageCrossed := cpu.mustGetAddress(instr.addrMode)
+		value = cpu.bus.Read(address)
+		if pageCrossed {
+			cpu.cycleDelay++
+		}
+	}
+
+	cpu.a &= value
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
 // arithmetic shift left
 func (cpu *Cpu) asl(instr *instruction, pc uint16) {
 	var value uint8

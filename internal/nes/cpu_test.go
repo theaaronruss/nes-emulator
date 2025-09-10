@@ -265,6 +265,50 @@ func TestGetIndirectIndexedAddress(t *testing.T) {
 	})
 }
 
+func TestAnd(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        uint8
+		memory   uint8
+		expected uint8
+		zero     bool
+		negative bool
+	}{
+		{
+			name: "all bits set",
+			a:    0xFF, memory: 0xFF, expected: 0xFF, zero: false, negative: true,
+		},
+		{
+			name: "no bits set",
+			a:    0xAA, memory: 0x55, expected: 0x00, zero: true, negative: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0xFFFC] = 0x00
+			bus.data[0xFFFD] = 0x06
+			bus.data[0x0601] = test.memory
+			cpu := NewCpu(bus)
+			cpu.a = test.a
+			cpu.and(&opcodes[0x29], cpu.pc)
+			if cpu.a != test.expected {
+				t.Errorf("%s: expected accumulator to be 0x%X, got 0x%X",
+					t.Name(), test.expected, cpu.a)
+			}
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("%s: expected zero flag to be %t, got %t", t.Name(),
+					test.zero, cpu.testFlag(flagZero))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("%s: expected negative flag to be %t, got %t",
+					t.Name(), test.negative, cpu.testFlag(flagNegative))
+			}
+		})
+	}
+}
+
 func TestAsl(t *testing.T) {
 	tests := []struct {
 		name     string
