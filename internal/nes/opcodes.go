@@ -24,6 +24,7 @@ const (
 	bpl  = "BPL"
 	brk  = "BRK"
 	clc  = "CLC"
+	jsr  = "JSR"
 	ora  = "ORA"
 	php  = "PHP"
 	inop = "*NOP"
@@ -68,7 +69,7 @@ var opcodes = [256]instruction{
 	0x1D: {ora, addrModeAbsoluteX, 3, 4, (*Cpu).ora},
 	0x1E: {asl, addrModeAbsoluteX, 3, 7, (*Cpu).asl},
 	0x1F: {islo, addrModeAbsoluteX, 3, 7, (*Cpu).slo},
-	// 0x20: {jsr, addrModeAbsolute, 3, 6, jumpToSubroutine},
+	0x20: {jsr, addrModeAbsolute, 3, 6, (*Cpu).jsr},
 	// 0x21: {and, addrModeIndexIndirX, 2, 6, bitwiseAnd},
 	// 0x23: {irla, addrModeIndexIndirX, 2, 8, illegalRotateLeftAndBitwiseAnd},
 	// 0x24: {bit, addrModeZeroPage, 2, 3, bitTest},

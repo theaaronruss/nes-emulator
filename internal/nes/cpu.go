@@ -254,6 +254,17 @@ func (cpu *Cpu) clc(instr *instruction, pc uint16) {
 	cpu.clearFlag(flagCarry)
 }
 
+// jump to subroutine
+func (cpu *Cpu) jsr(instr *instruction, pc uint16) {
+	address, _ := cpu.mustGetAddress(instr.addrMode)
+	cpu.pc += 2
+	low := uint8(pc & 0x00FF)
+	high := uint8((pc & 0xFF00) >> 8)
+	cpu.stackPush(high)
+	cpu.stackPush(low)
+	cpu.pc = address
+}
+
 // no operation
 func (cpu *Cpu) nop(instr *instruction, pc uint16) {
 	// do nothing

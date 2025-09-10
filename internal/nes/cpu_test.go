@@ -372,6 +372,25 @@ func TestBrk(t *testing.T) {
 	}
 }
 
+func TestJsr(t *testing.T) {
+	bus := newFakeSysBus()
+	bus.data[0xFFFC] = 0x00
+	bus.data[0xFFFD] = 0x06
+	bus.data[0x0601] = 0x34
+	bus.data[0x0602] = 0x12
+	cpu := NewCpu(bus)
+	cpu.jsr(&opcodes[0x20], cpu.pc)
+	if cpu.pc != 0x1234 {
+		t.Errorf("expected pc to be 0x1234, got 0x%X", cpu.pc)
+	}
+	oldPcLow := cpu.stackPop()
+	oldPcHigh := cpu.stackPop()
+	oldPc := uint16(oldPcHigh)<<8 | uint16(oldPcLow)
+	if oldPc != 0x0600 {
+		t.Errorf("wrong address pushed to stack, got 0x%X", oldPc)
+	}
+}
+
 func TestOra(t *testing.T) {
 	tests := []struct {
 		name     string
