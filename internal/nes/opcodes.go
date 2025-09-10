@@ -21,6 +21,7 @@ const (
 // opcode mnemonics
 const (
 	asl  = "ASL"
+	bpl  = "BPL"
 	brk  = "BRK"
 	ora  = "ORA"
 	php  = "PHP"
@@ -51,7 +52,7 @@ var opcodes = [256]instruction{
 	0x0D: {ora, addrModeAbsolute, 3, 4, (*Cpu).ora},
 	0x0E: {asl, addrModeAbsolute, 3, 6, (*Cpu).asl},
 	0x0F: {islo, addrModeAbsolute, 3, 6, (*Cpu).slo},
-	// 0x10: {bpl, addrModeRelative, 2, 2, branchIfPlus},
+	0x10: {bpl, addrModeRelative, 2, 2, (*Cpu).bpl},
 	0x11: {ora, addrModeIndirIndexed, 2, 5, (*Cpu).ora},
 	0x13: {islo, addrModeIndirIndexed, 2, 8, (*Cpu).slo},
 	0x14: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},

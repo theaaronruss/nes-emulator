@@ -285,26 +285,70 @@ func TestAsl(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		bus := newFakeSysBus()
-		cpu := NewCpu(bus)
-		cpu.a = test.a
-		cpu.asl(&opcodes[0x0A], cpu.pc)
-		if cpu.a != test.expected {
-			t.Errorf("expected accumulator to be 0x%X, got 0x%X", test.expected,
-				cpu.a)
-		}
-		if cpu.testFlag(flagCarry) != test.carry {
-			t.Errorf("expected carry flag to be %t, got %t", test.carry,
-				cpu.testFlag(flagCarry))
-		}
-		if cpu.testFlag(flagNegative) != test.negative {
-			t.Errorf("expected negative flag to be %t, got %t", test.negative,
-				cpu.testFlag(flagNegative))
-		}
-		if cpu.testFlag(flagZero) != test.zero {
-			t.Errorf("expected zero flag to be %t, got %t", test.zero,
-				cpu.testFlag(flagZero))
-		}
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			cpu := NewCpu(bus)
+			cpu.a = test.a
+			cpu.asl(&opcodes[0x0A], cpu.pc)
+			if cpu.a != test.expected {
+				t.Errorf("expected accumulator to be 0x%X, got 0x%X", test.expected,
+					cpu.a)
+			}
+			if cpu.testFlag(flagCarry) != test.carry {
+				t.Errorf("expected carry flag to be %t, got %t", test.carry,
+					cpu.testFlag(flagCarry))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("expected negative flag to be %t, got %t", test.negative,
+					cpu.testFlag(flagNegative))
+			}
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("expected zero flag to be %t, got %t", test.zero,
+					cpu.testFlag(flagZero))
+			}
+		})
+	}
+}
+
+func TestBsl(t *testing.T) {
+	tests := []struct {
+		name     string
+		offset   uint8
+		negative bool
+		expected uint16
+	}{
+		{
+			name:   "branch taken forward",
+			offset: 0x23, negative: false, expected: 0x0625,
+		},
+		{
+			name:   "branch taken backward",
+			offset: 0xF8, negative: false, expected: 0x05FA,
+		},
+		{
+			name:   "branch not taken",
+			offset: 0x3A, negative: true, expected: 0x0600,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(t.Name(), func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0xFFFC] = 0x00
+			bus.data[0xFFFD] = 0x06
+			bus.data[0x0601] = test.offset
+			cpu := NewCpu(bus)
+			if test.negative {
+				cpu.setFlag(flagNegative)
+			} else {
+				cpu.clearFlag(flagNegative)
+			}
+			cpu.bpl(&opcodes[0x10], cpu.pc)
+			if cpu.pc != test.expected {
+				t.Errorf("%s: expected pc to be 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.pc)
+			}
+		})
 	}
 }
 
@@ -348,25 +392,27 @@ func TestOra(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		bus := newFakeSysBus()
-		bus.data[0xFFFC] = 0x00
-		bus.data[0xFFFD] = 0x06
-		bus.data[0x0601] = test.memory
-		cpu := NewCpu(bus)
-		cpu.a = test.a
-		cpu.ora(&opcodes[0x09], cpu.pc)
-		if cpu.a != test.expected {
-			t.Errorf("%s: expected accumulator to be 0x%X, got 0x%X", t.Name(),
-				test.expected, cpu.a)
-		}
-		if cpu.testFlag(flagZero) != test.zero {
-			t.Errorf("%s: expected zero flag to be %t, get %t", t.Name(),
-				test.zero, cpu.testFlag(flagZero))
-		}
-		if cpu.testFlag(flagNegative) != test.negative {
-			t.Errorf("%s: expected negative flag to be %t, got %t", t.Name(),
-				test.negative, cpu.testFlag(flagNegative))
-		}
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0xFFFC] = 0x00
+			bus.data[0xFFFD] = 0x06
+			bus.data[0x0601] = test.memory
+			cpu := NewCpu(bus)
+			cpu.a = test.a
+			cpu.ora(&opcodes[0x09], cpu.pc)
+			if cpu.a != test.expected {
+				t.Errorf("%s: expected accumulator to be 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.a)
+			}
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("%s: expected zero flag to be %t, get %t", t.Name(),
+					test.zero, cpu.testFlag(flagZero))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("%s: expected negative flag to be %t, got %t", t.Name(),
+					test.negative, cpu.testFlag(flagNegative))
+			}
+		})
 	}
 }
 

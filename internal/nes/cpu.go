@@ -222,6 +222,20 @@ func (cpu *Cpu) asl(instr *instruction, pc uint16) {
 	}
 }
 
+// branch if plus
+func (cpu *Cpu) bpl(instr *instruction, pc uint16) {
+	if cpu.testFlag(flagNegative) {
+		return
+	}
+	address, pageCrossed := cpu.mustGetAddress(instr.addrMode)
+	cpu.pc = address
+
+	cpu.cycleDelay++
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
+}
+
 // force break
 func (cpu *Cpu) brk(instr *instruction, pc uint16) {
 	pc += 2
