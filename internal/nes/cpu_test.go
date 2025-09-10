@@ -495,6 +495,34 @@ func TestPhp(t *testing.T) {
 	}
 }
 
+func TestRla(t *testing.T) {
+	bus := newFakeSysBus()
+	bus.data[0xFFFC] = 0x00
+	bus.data[0xFFFD] = 0x06
+	bus.data[0x0601] = 0x34
+	bus.data[0x0602] = 0x12
+	bus.data[0x1234] = 0xC1
+	cpu := NewCpu(bus)
+	cpu.a = 0xAA
+	cpu.clearFlag(flagCarry)
+	cpu.rla(&opcodes[0x2F], cpu.pc)
+	if cpu.a != 0x82 {
+		t.Errorf("expected accumulator to be 0x82, got 0x%X", cpu.a)
+	}
+	if bus.data[0x1234] != 0x82 {
+		t.Errorf("expected address 0x1234 to be 0x82, got 0x%X", bus.data[0x1234])
+	}
+	if !cpu.testFlag(flagCarry) {
+		t.Errorf("expected carry flag to be set, not cleared")
+	}
+	if !cpu.testFlag(flagNegative) {
+		t.Errorf("expected negative flag to be set, not cleared")
+	}
+	if cpu.testFlag(flagZero) {
+		t.Errorf("expected zero flag to be cleared, not set")
+	}
+}
+
 func TestSlo(t *testing.T) {
 	bus := newFakeSysBus()
 	bus.data[0xFFFC] = 0x00

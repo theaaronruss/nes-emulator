@@ -331,6 +331,40 @@ func (cpu *Cpu) php(instr *instruction, pc uint16) {
 	cpu.stackPush(cpu.status | flagUnused | flagBreak)
 }
 
+// rotate left and bitwise and
+func (cpu *Cpu) rla(instr *instruction, pc uint16) {
+	address, _ := cpu.mustGetAddress(instr.addrMode)
+	value := cpu.bus.Read(address)
+
+	carry := cpu.testFlag(flagCarry)
+	if value&0x80 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value <<= 1
+
+	if carry {
+		value |= 0x01
+	}
+
+	cpu.bus.Write(address, value)
+	cpu.a &= value
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
 // arithmetic shift left and bitwise or
 func (cpu *Cpu) slo(instr *instruction, pc uint16) {
 	address, _ := cpu.mustGetAddress(instr.addrMode)
