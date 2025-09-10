@@ -573,6 +573,61 @@ func TestRla(t *testing.T) {
 	}
 }
 
+func TestRol(t *testing.T) {
+	tests := []struct {
+		name         string
+		a            uint8
+		initialCarry bool
+		expected     uint8
+		carry        bool
+		negative     bool
+		zero         bool
+	}{
+		{
+			name: "carry in",
+			a:    0x80, initialCarry: true, expected: 0x01,
+			carry: true, negative: false, zero: false,
+		},
+		{
+			name: "no carry in, result zero",
+			a:    0x80, initialCarry: false, expected: 0x00,
+			carry: true, negative: false, zero: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0xFFFC] = 0x00
+			bus.data[0xFFFD] = 0x06
+			cpu := NewCpu(bus)
+			cpu.a = test.a
+			if test.initialCarry {
+				cpu.setFlag(flagCarry)
+			} else {
+				cpu.clearFlag(flagCarry)
+			}
+			cpu.rol(&opcodes[0x2A], cpu.pc)
+			if cpu.a != test.expected {
+				t.Errorf("%s: expected value 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.a)
+			}
+			if cpu.testFlag(flagCarry) != test.carry {
+				t.Errorf("%s: expected carry to be %v, got %v", t.Name(), test.carry,
+					cpu.testFlag(flagCarry))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("%s: expected negative to be %v, got %v", t.Name(),
+					test.negative, cpu.testFlag(flagNegative))
+			}
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("%s: expected zero to be %v, got %v", t.Name(), test.zero,
+					cpu.testFlag(flagZero))
+			}
+		})
+	}
+}
+
 func TestSlo(t *testing.T) {
 	bus := newFakeSysBus()
 	bus.data[0xFFFC] = 0x00

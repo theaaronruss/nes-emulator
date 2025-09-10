@@ -29,6 +29,7 @@ const (
 	jsr  = "JSR"
 	ora  = "ORA"
 	php  = "PHP"
+	rol  = "ROL"
 	inop = "*NOP"
 	irla = "*RLA"
 	islo = "*SLO"
@@ -77,21 +78,21 @@ var opcodes = [256]instruction{
 	0x23: {irla, addrModeIndexedIndir, 2, 8, (*Cpu).rla},
 	0x24: {bit, addrModeZeroPage, 2, 3, (*Cpu).bit},
 	0x25: {and, addrModeZeroPage, 2, 3, (*Cpu).and},
-	// 0x26: {rol, addrModeZeroPage, 2, 5, rotateLeft},
+	0x26: {rol, addrModeZeroPage, 2, 5, (*Cpu).rol},
 	0x27: {irla, addrModeZeroPage, 2, 5, (*Cpu).rla},
 	// 0x28: {plp, addrModeImplied, 1, 4, pullProcessorStatus},
 	0x29: {and, addrModeImmediate, 2, 2, (*Cpu).and},
-	// 0x2A: {rol, addrModeAccumulator, 1, 2, rotateLeft},
+	0x2A: {rol, addrModeAccumulator, 1, 2, (*Cpu).rol},
 	0x2C: {bit, addrModeAbsolute, 3, 4, (*Cpu).bit},
 	0x2D: {and, addrModeAbsolute, 3, 4, (*Cpu).and},
-	// 0x2E: {rol, addrModeAbsolute, 3, 6, rotateLeft},
+	0x2E: {rol, addrModeAbsolute, 3, 6, (*Cpu).rol},
 	0x2F: {irla, addrModeAbsolute, 3, 6, (*Cpu).rla},
 	// 0x30: {bmi, addrModeRelative, 2, 2, branchIfMinus},
 	0x31: {and, addrModeIndirIndexed, 2, 5, (*Cpu).and},
 	0x33: {irla, addrModeIndirIndexed, 2, 8, (*Cpu).rla},
 	0x34: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
 	0x35: {and, addrModeZeroPageX, 2, 4, (*Cpu).and},
-	// 0x36: {rol, addrModeZeroPageX, 2, 6, rotateLeft},
+	0x36: {rol, addrModeZeroPageX, 2, 6, (*Cpu).rol},
 	0x37: {irla, addrModeZeroPageX, 2, 6, (*Cpu).rla},
 	// 0x38: {sec, addrModeImplied, 1, 2, setCarry},
 	0x39: {and, addrModeAbsoluteY, 3, 4, (*Cpu).and},
@@ -99,7 +100,7 @@ var opcodes = [256]instruction{
 	0x3B: {irla, addrModeAbsoluteY, 3, 7, (*Cpu).rla},
 	0x3C: {inop, addrModeAbsoluteX, 3, 4, (*Cpu).nop},
 	0x3D: {and, addrModeAbsoluteX, 3, 4, (*Cpu).and},
-	// 0x3E: {rol, addrModeAbsoluteX, 3, 7, rotateLeft},
+	0x3E: {rol, addrModeAbsoluteX, 3, 7, (*Cpu).rol},
 	0x3F: {irla, addrModeAbsoluteX, 3, 7, (*Cpu).rla},
 	// 0x40: {rti, addrModeImplied, 1, 6, returnFromInterrupt},
 	// 0x41: {eor, addrModeIndexedIndir, 2, 6, bitwiseXor},

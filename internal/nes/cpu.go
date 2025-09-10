@@ -390,6 +390,49 @@ func (cpu *Cpu) rla(instr *instruction, pc uint16) {
 	}
 }
 
+// rotate left
+func (cpu *Cpu) rol(instr *instruction, pc uint16) {
+	var value uint8
+	var address uint16
+	if instr.addrMode == addrModeAccumulator {
+		value = cpu.a
+	} else {
+		address, _ = cpu.mustGetAddress(instr.addrMode)
+		value = cpu.bus.Read(address)
+	}
+
+	carry := cpu.testFlag(flagCarry)
+	if value&0x80 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value <<= 1
+
+	if carry {
+		value |= 0x01
+	}
+
+	if value == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+
+	if instr.addrMode == addrModeAccumulator {
+		cpu.a = value
+	} else {
+		cpu.bus.Write(address, value)
+	}
+}
+
 // arithmetic shift left and bitwise or
 func (cpu *Cpu) slo(instr *instruction, pc uint16) {
 	address, _ := cpu.mustGetAddress(instr.addrMode)
