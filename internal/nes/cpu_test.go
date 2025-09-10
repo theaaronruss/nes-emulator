@@ -179,7 +179,7 @@ func TestGetIndirectAddress(t *testing.T) {
 		cpu := NewCpu(bus)
 		actual := cpu.getIndirectAddress()
 		if actual != 0x1234 {
-			t.Errorf("basic jump: expected address 0x1234, got 0x%X", actual)
+			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
 		}
 	})
 
@@ -194,7 +194,7 @@ func TestGetIndirectAddress(t *testing.T) {
 		cpu := NewCpu(bus)
 		actual := cpu.getIndirectAddress()
 		if actual != 0x1234 {
-			t.Errorf("boundary jump: expected address 0x1234, got 0x%X", actual)
+			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
 		}
 	})
 }
@@ -210,7 +210,7 @@ func TestGetIndexedIndirectAddress(t *testing.T) {
 		cpu := NewCpu(bus)
 		actual := cpu.getIndexedIndirectAddress(0x08)
 		if actual != 0x1234 {
-			t.Errorf("zero page: expected address 0x1234, got 0x%X", actual)
+			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
 		}
 	})
 
@@ -257,10 +257,30 @@ func TestGetIndirectIndexedAddress(t *testing.T) {
 		cpu := NewCpu(bus)
 		actual, pageCrossed := cpu.getIndirectIndexedAddress(0x23)
 		if actual != 0xA313 {
-			t.Errorf("same page: expected address 0xA313, got 0x%X", actual)
+			t.Errorf("%s: expected address 0xA313, got 0x%X", t.Name(), actual)
 		}
 		if !pageCrossed {
 			t.Errorf("%s: expected page cross, got page crossed false", t.Name())
 		}
 	})
+}
+
+func TestBrk(t *testing.T) {
+	bus := newFakeSysBus()
+	bus.data[0xFFFC] = 0x00
+	bus.data[0xFFFD] = 0x06
+	bus.data[0xFFFE] = 0x34
+	bus.data[0xFFFF] = 0x12
+	cpu := NewCpu(bus)
+	oldPc := cpu.pc + 2
+	cpu.brk(&opcodes[0x00])
+	if cpu.pc != 0x1234 {
+		t.Errorf("incorrect irq vector")
+	}
+	cpu.stackPop() // status flags
+	low := cpu.stackPop()
+	high := cpu.stackPop()
+	if uint16(low) != oldPc&0x00FF || uint16(high) != oldPc&0xFF00>>8 {
+		t.Errorf("incorrect program counter pushed to stack")
+	}
 }

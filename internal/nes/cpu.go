@@ -171,3 +171,16 @@ func (cpu *Cpu) getIndirectIndexedAddress(offset uint8) (uint16, bool) {
 		return offsetAddress, false
 	}
 }
+
+// force break
+func (cpu *Cpu) brk(instr *instruction) {
+	cpu.pc += 2
+	oldPcLow := uint8(cpu.pc & 0x00FF)
+	oldPcHigh := uint8(cpu.pc & 0xFF00 >> 8)
+	cpu.stackPush(oldPcHigh)
+	cpu.stackPush(oldPcLow)
+	cpu.stackPush(cpu.status | flagUnused | flagBreak)
+	newPcLow := cpu.bus.Read(irqVector)
+	newPcHigh := cpu.bus.Read(irqVector + 1)
+	cpu.pc = uint16(newPcHigh)<<8 | uint16(newPcLow)
+}
