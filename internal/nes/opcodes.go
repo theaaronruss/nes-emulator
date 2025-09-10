@@ -20,6 +20,7 @@ const (
 
 // opcode mnemonics
 const (
+	asl  = "ASL"
 	brk  = "BRK"
 	ora  = "ORA"
 	inop = "*NOP"
@@ -40,21 +41,21 @@ var opcodes = [256]instruction{
 	0x03: {islo, addrModeIndexedIndir, 2, 8, (*Cpu).slo},
 	0x04: {inop, addrModeZeroPage, 2, 3, (*Cpu).nop},
 	0x05: {ora, addrModeZeroPage, 2, 3, (*Cpu).ora},
-	// 0x06: {asl, addrModeZeroPage, 2, 5, arithmeticShiftLeft},
+	0x06: {asl, addrModeZeroPage, 2, 5, (*Cpu).asl},
 	0x07: {islo, addrModeZeroPage, 2, 5, (*Cpu).slo},
 	// 0x08: {php, addrModeImplied, 1, 3, pushProcessorStatus},
 	0x09: {ora, addrModeImmediate, 2, 2, (*Cpu).ora},
-	// 0x0A: {asl, addrModeAccumulator, 1, 2, arithmeticShiftLeft},
+	0x0A: {asl, addrModeAccumulator, 1, 2, (*Cpu).asl},
 	0x0C: {inop, addrModeAbsolute, 3, 4, (*Cpu).nop},
 	0x0D: {ora, addrModeAbsolute, 3, 4, (*Cpu).ora},
-	// 0x0E: {asl, addrModeAbsolute, 3, 6, arithmeticShiftLeft},
+	0x0E: {asl, addrModeAbsolute, 3, 6, (*Cpu).asl},
 	0x0F: {islo, addrModeAbsolute, 3, 6, (*Cpu).slo},
 	// 0x10: {bpl, addrModeRelative, 2, 2, branchIfPlus},
 	0x11: {ora, addrModeIndirIndexed, 2, 5, (*Cpu).ora},
 	0x13: {islo, addrModeIndirIndexed, 2, 8, (*Cpu).slo},
 	0x14: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
 	0x15: {ora, addrModeZeroPageX, 2, 4, (*Cpu).ora},
-	// 0x16: {asl, addrModeZeroPageX, 2, 6, arithmeticShiftLeft},
+	0x16: {asl, addrModeZeroPageX, 2, 6, (*Cpu).asl},
 	0x17: {islo, addrModeZeroPageX, 2, 6, (*Cpu).slo},
 	// 0x18: {clc, addrModeImplied, 1, 2, clearCarry},
 	0x19: {ora, addrModeAbsoluteY, 3, 4, (*Cpu).ora},
@@ -62,7 +63,7 @@ var opcodes = [256]instruction{
 	0x1B: {islo, addrModeAbsoluteY, 3, 7, (*Cpu).slo},
 	0x1C: {inop, addrModeAbsoluteX, 3, 4, (*Cpu).nop},
 	0x1D: {ora, addrModeAbsoluteX, 3, 4, (*Cpu).ora},
-	// 0x1E: {asl, addrModeAbsoluteX, 3, 7, arithmeticShiftLeft},
+	0x1E: {asl, addrModeAbsoluteX, 3, 7, (*Cpu).asl},
 	0x1F: {islo, addrModeAbsoluteX, 3, 7, (*Cpu).slo},
 	// 0x20: {jsr, addrModeAbsolute, 3, 6, jumpToSubroutine},
 	// 0x21: {and, addrModeIndexIndirX, 2, 6, bitwiseAnd},

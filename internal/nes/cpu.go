@@ -184,6 +184,44 @@ func (cpu *Cpu) getIndirectIndexedAddress(offset uint8) (uint16, bool) {
 	}
 }
 
+// arithmetic shift left
+func (cpu *Cpu) asl(instr *instruction, pc uint16) {
+	var value uint8
+	var address uint16
+	if instr.addrMode == addrModeAccumulator {
+		value = cpu.a
+	} else {
+		address, _ = cpu.mustGetAddress(instr.addrMode)
+		value = cpu.bus.Read(address)
+	}
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value <<= 1
+
+	if value == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+
+	if instr.addrMode == addrModeAccumulator {
+		cpu.a = value
+	} else {
+		cpu.bus.Write(address, value)
+	}
+}
+
 // force break
 func (cpu *Cpu) brk(instr *instruction, pc uint16) {
 	pc += 2
@@ -197,6 +235,7 @@ func (cpu *Cpu) brk(instr *instruction, pc uint16) {
 	cpu.pc = uint16(newPcHigh)<<8 | uint16(newPcLow)
 }
 
+// no operation
 func (cpu *Cpu) nop(instr *instruction, pc uint16) {
 	// do nothing
 }
@@ -229,6 +268,7 @@ func (cpu *Cpu) ora(instr *instruction, pc uint16) {
 	}
 }
 
+// arithmetic shift left and bitwise or
 func (cpu *Cpu) slo(instr *instruction, pc uint16) {
 	address, _ := cpu.mustGetAddress(instr.addrMode)
 	value := cpu.bus.Read(address)

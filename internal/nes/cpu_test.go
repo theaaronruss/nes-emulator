@@ -265,6 +265,49 @@ func TestGetIndirectIndexedAddress(t *testing.T) {
 	})
 }
 
+func TestAsl(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        uint8
+		expected uint8
+		carry    bool
+		negative bool
+		zero     bool
+	}{
+		{
+			name: "negative",
+			a:    0x55, expected: 0xAA, carry: false, negative: true, zero: false,
+		},
+		{
+			name: "zero",
+			a:    0x80, expected: 0x00, carry: true, negative: false, zero: true,
+		},
+	}
+
+	for _, test := range tests {
+		bus := newFakeSysBus()
+		cpu := NewCpu(bus)
+		cpu.a = test.a
+		cpu.asl(&opcodes[0x0A], cpu.pc)
+		if cpu.a != test.expected {
+			t.Errorf("expected accumulator to be 0x%X, got 0x%X", test.expected,
+				cpu.a)
+		}
+		if cpu.testFlag(flagCarry) != test.carry {
+			t.Errorf("expected carry flag to be %t, got %t", test.carry,
+				cpu.testFlag(flagCarry))
+		}
+		if cpu.testFlag(flagNegative) != test.negative {
+			t.Errorf("expected negative flag to be %t, got %t", test.negative,
+				cpu.testFlag(flagNegative))
+		}
+		if cpu.testFlag(flagZero) != test.zero {
+			t.Errorf("expected zero flag to be %t, got %t", test.zero,
+				cpu.testFlag(flagZero))
+		}
+	}
+}
+
 func TestBrk(t *testing.T) {
 	bus := newFakeSysBus()
 	bus.data[0xFFFC] = 0x00
