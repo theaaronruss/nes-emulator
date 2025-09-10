@@ -197,6 +197,10 @@ func (cpu *Cpu) brk(instr *instruction, pc uint16) {
 	cpu.pc = uint16(newPcHigh)<<8 | uint16(newPcLow)
 }
 
+func (cpu *Cpu) nop(instr *instruction, pc uint16) {
+	// do nothing
+}
+
 // bitwise or
 func (cpu *Cpu) ora(instr *instruction, pc uint16) {
 	var value uint8
