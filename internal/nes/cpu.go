@@ -250,6 +250,31 @@ func (cpu *Cpu) asl(instr *instruction, pc uint16) {
 	}
 }
 
+// bit test
+func (cpu *Cpu) bit(instr *instruction, pc uint16) {
+	address, _ := cpu.mustGetAddress(instr.addrMode)
+	value := cpu.bus.Read(address)
+	result := cpu.a & value
+
+	if result == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if value&0x40 > 0 {
+		cpu.setFlag(flagOverflow)
+	} else {
+		cpu.clearFlag(flagOverflow)
+	}
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
 // branch if plus
 func (cpu *Cpu) bpl(instr *instruction, pc uint16) {
 	if cpu.testFlag(flagNegative) {

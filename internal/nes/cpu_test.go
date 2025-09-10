@@ -354,6 +354,56 @@ func TestAsl(t *testing.T) {
 	}
 }
 
+func TestBit(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        uint8
+		memory   uint8
+		zero     bool
+		overflow bool
+		negative bool
+	}{
+		{
+			name: "zero",
+			a:    0x55, memory: 0x2A, zero: true, overflow: false, negative: false,
+		},
+		{
+			name: "overflow",
+			a:    0xEA, memory: 0x55, zero: false, overflow: true, negative: false,
+		},
+		{
+			name: "negative",
+			a:    0xD5, memory: 0xAA, zero: false, overflow: false, negative: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0xFFFC] = 0x00
+			bus.data[0xFFFD] = 0x06
+			bus.data[0x0601] = 0x34
+			bus.data[0x0602] = 0x12
+			bus.data[0x1234] = test.memory
+			cpu := NewCpu(bus)
+			cpu.a = test.a
+			cpu.bit(&opcodes[0x2C], cpu.pc)
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("%s: expected zero flag to be %t, got %t", t.Name(),
+					test.zero, cpu.testFlag(flagZero))
+			}
+			if cpu.testFlag(flagOverflow) != test.overflow {
+				t.Errorf("%s: expected overflow flag to be %t, got %t", t.Name(),
+					test.overflow, cpu.testFlag(flagOverflow))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("%s: expected negative flag to be %t, got %t", t.Name(),
+					test.negative, cpu.testFlag(flagNegative))
+			}
+		})
+	}
+}
+
 func TestBsl(t *testing.T) {
 	tests := []struct {
 		name     string

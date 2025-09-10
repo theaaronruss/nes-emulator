@@ -22,6 +22,7 @@ const (
 const (
 	and  = "AND"
 	asl  = "ASL"
+	bit  = "BIT"
 	bpl  = "BPL"
 	brk  = "BRK"
 	clc  = "CLC"
@@ -74,14 +75,14 @@ var opcodes = [256]instruction{
 	0x20: {jsr, addrModeAbsolute, 3, 6, (*Cpu).jsr},
 	0x21: {and, addrModeIndexedIndir, 2, 6, (*Cpu).and},
 	0x23: {irla, addrModeIndexedIndir, 2, 8, (*Cpu).rla},
-	// 0x24: {bit, addrModeZeroPage, 2, 3, bitTest},
+	0x24: {bit, addrModeZeroPage, 2, 3, (*Cpu).bit},
 	0x25: {and, addrModeZeroPage, 2, 3, (*Cpu).and},
 	// 0x26: {rol, addrModeZeroPage, 2, 5, rotateLeft},
 	0x27: {irla, addrModeZeroPage, 2, 5, (*Cpu).rla},
 	// 0x28: {plp, addrModeImplied, 1, 4, pullProcessorStatus},
 	0x29: {and, addrModeImmediate, 2, 2, (*Cpu).and},
 	// 0x2A: {rol, addrModeAccumulator, 1, 2, rotateLeft},
-	// 0x2C: {bit, addrModeAbsolute, 3, 4, bitTest},
+	0x2C: {bit, addrModeAbsolute, 3, 4, (*Cpu).bit},
 	0x2D: {and, addrModeAbsolute, 3, 4, (*Cpu).and},
 	// 0x2E: {rol, addrModeAbsolute, 3, 6, rotateLeft},
 	0x2F: {irla, addrModeAbsolute, 3, 6, (*Cpu).rla},
