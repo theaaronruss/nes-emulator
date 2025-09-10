@@ -46,6 +46,18 @@ func NewCpu(bus BusReadWriter) *Cpu {
 	return cpu
 }
 
+func (cpu *Cpu) Clock() {
+	if cpu.cycleDelay <= 0 {
+		opcode := cpu.bus.Read(cpu.pc)
+		instruction := opcodes[opcode]
+		currPc := cpu.pc
+		cpu.pc += uint16(instruction.bytes)
+		instruction.fn(cpu, &instruction, currPc)
+		cpu.cycleDelay += instruction.cycles
+	}
+	cpu.cycleDelay--
+}
+
 func (cpu *Cpu) setFlag(flag uint8) {
 	cpu.status |= flag
 }
@@ -173,14 +185,42 @@ func (cpu *Cpu) getIndirectIndexedAddress(offset uint8) (uint16, bool) {
 }
 
 // force break
-func (cpu *Cpu) brk(instr *instruction) {
-	cpu.pc += 2
-	oldPcLow := uint8(cpu.pc & 0x00FF)
-	oldPcHigh := uint8(cpu.pc & 0xFF00 >> 8)
+func (cpu *Cpu) brk(instr *instruction, pc uint16) {
+	pc += 2
+	oldPcLow := uint8(pc & 0x00FF)
+	oldPcHigh := uint8(pc & 0xFF00 >> 8)
 	cpu.stackPush(oldPcHigh)
 	cpu.stackPush(oldPcLow)
 	cpu.stackPush(cpu.status | flagUnused | flagBreak)
 	newPcLow := cpu.bus.Read(irqVector)
 	newPcHigh := cpu.bus.Read(irqVector + 1)
 	cpu.pc = uint16(newPcHigh)<<8 | uint16(newPcLow)
+}
+
+// bitwise or
+func (cpu *Cpu) ora(instr *instruction, pc uint16) {
+	var value uint8
+	if instr.addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, pageCrossed := cpu.mustGetAddress(instr.addrMode)
+		value = cpu.bus.Read(address)
+		if pageCrossed {
+			cpu.cycleDelay++
+		}
+	}
+
+	cpu.a |= value
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }

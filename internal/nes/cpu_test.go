@@ -273,7 +273,7 @@ func TestBrk(t *testing.T) {
 	bus.data[0xFFFF] = 0x12
 	cpu := NewCpu(bus)
 	oldPc := cpu.pc + 2
-	cpu.brk(&opcodes[0x00])
+	cpu.brk(&opcodes[0x00], cpu.pc)
 	if cpu.pc != 0x1234 {
 		t.Errorf("incorrect irq vector")
 	}
@@ -282,5 +282,47 @@ func TestBrk(t *testing.T) {
 	high := cpu.stackPop()
 	if uint16(low) != oldPc&0x00FF || uint16(high) != oldPc&0xFF00>>8 {
 		t.Errorf("incorrect program counter pushed to stack")
+	}
+}
+
+func TestOra(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        uint8
+		memory   uint8
+		expected uint8
+		zero     bool
+		negative bool
+	}{
+		{
+			name: "all bits set",
+			a:    0xAA, memory: 0x55, expected: 0xFF, zero: false, negative: true,
+		},
+		{
+			name: "no bits set",
+			a:    0x00, memory: 0x00, expected: 0x00, zero: true, negative: false,
+		},
+	}
+
+	for _, test := range tests {
+		bus := newFakeSysBus()
+		bus.data[0xFFFC] = 0x00
+		bus.data[0xFFFD] = 0x06
+		bus.data[0x0601] = test.memory
+		cpu := NewCpu(bus)
+		cpu.a = test.a
+		cpu.ora(&opcodes[0x09], cpu.pc)
+		if cpu.a != test.expected {
+			t.Errorf("%s: expected accumulator to be 0x%X, got 0x%X", t.Name(),
+				test.expected, cpu.a)
+		}
+		if cpu.testFlag(flagZero) != test.zero {
+			t.Errorf("%s: expected zero flag to be %t, get %t", t.Name(),
+				test.zero, cpu.testFlag(flagZero))
+		}
+		if cpu.testFlag(flagNegative) != test.negative {
+			t.Errorf("%s: expected negative flag to be %t, got %t", t.Name(),
+				test.negative, cpu.testFlag(flagNegative))
+		}
 	}
 }
