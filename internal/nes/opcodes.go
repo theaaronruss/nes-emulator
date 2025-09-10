@@ -23,6 +23,7 @@ const (
 	asl  = "ASL"
 	bpl  = "BPL"
 	brk  = "BRK"
+	clc  = "CLC"
 	ora  = "ORA"
 	php  = "PHP"
 	inop = "*NOP"
@@ -59,7 +60,7 @@ var opcodes = [256]instruction{
 	0x15: {ora, addrModeZeroPageX, 2, 4, (*Cpu).ora},
 	0x16: {asl, addrModeZeroPageX, 2, 6, (*Cpu).asl},
 	0x17: {islo, addrModeZeroPageX, 2, 6, (*Cpu).slo},
-	// 0x18: {clc, addrModeImplied, 1, 2, clearCarry},
+	0x18: {clc, addrModeImplied, 1, 2, (*Cpu).clc},
 	0x19: {ora, addrModeAbsoluteY, 3, 4, (*Cpu).ora},
 	0x1A: {inop, addrModeImplied, 1, 2, (*Cpu).nop},
 	0x1B: {islo, addrModeAbsoluteY, 3, 7, (*Cpu).slo},

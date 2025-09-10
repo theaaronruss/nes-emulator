@@ -249,6 +249,11 @@ func (cpu *Cpu) brk(instr *instruction, pc uint16) {
 	cpu.pc = uint16(newPcHigh)<<8 | uint16(newPcLow)
 }
 
+// clear carry
+func (cpu *Cpu) clc(instr *instruction, pc uint16) {
+	cpu.clearFlag(flagCarry)
+}
+
 // no operation
 func (cpu *Cpu) nop(instr *instruction, pc uint16) {
 	// do nothing
