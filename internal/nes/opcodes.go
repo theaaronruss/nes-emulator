@@ -23,6 +23,7 @@ const (
 	asl  = "ASL"
 	brk  = "BRK"
 	ora  = "ORA"
+	php  = "PHP"
 	inop = "*NOP"
 	islo = "*SLO"
 )
@@ -43,7 +44,7 @@ var opcodes = [256]instruction{
 	0x05: {ora, addrModeZeroPage, 2, 3, (*Cpu).ora},
 	0x06: {asl, addrModeZeroPage, 2, 5, (*Cpu).asl},
 	0x07: {islo, addrModeZeroPage, 2, 5, (*Cpu).slo},
-	// 0x08: {php, addrModeImplied, 1, 3, pushProcessorStatus},
+	0x08: {php, addrModeImplied, 1, 3, (*Cpu).php},
 	0x09: {ora, addrModeImmediate, 2, 2, (*Cpu).ora},
 	0x0A: {asl, addrModeAccumulator, 1, 2, (*Cpu).asl},
 	0x0C: {inop, addrModeAbsolute, 3, 4, (*Cpu).nop},

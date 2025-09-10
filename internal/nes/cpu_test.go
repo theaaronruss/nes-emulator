@@ -370,6 +370,22 @@ func TestOra(t *testing.T) {
 	}
 }
 
+func TestPhp(t *testing.T) {
+	bus := newFakeSysBus()
+	cpu := NewCpu(bus)
+	cpu.setFlag(flagNegative)
+	cpu.setFlag(flagOverflow)
+	cpu.setFlag(flagDecimal)
+	cpu.setFlag(flagIntDisable)
+	cpu.setFlag(flagZero)
+	cpu.setFlag(flagCarry)
+	cpu.php(&opcodes[0x08], cpu.pc)
+	status := cpu.stackPop()
+	if status != 0xFF {
+		t.Errorf("incorrect flags pushed to stack")
+	}
+}
+
 func TestSlo(t *testing.T) {
 	bus := newFakeSysBus()
 	bus.data[0xFFFC] = 0x00

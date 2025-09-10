@@ -268,6 +268,11 @@ func (cpu *Cpu) ora(instr *instruction, pc uint16) {
 	}
 }
 
+// push processor status
+func (cpu *Cpu) php(instr *instruction, pc uint16) {
+	cpu.stackPush(cpu.status | flagUnused | flagBreak)
+}
+
 // arithmetic shift left and bitwise or
 func (cpu *Cpu) slo(instr *instruction, pc uint16) {
 	address, _ := cpu.mustGetAddress(instr.addrMode)
