@@ -224,3 +224,31 @@ func (cpu *Cpu) ora(instr *instruction, pc uint16) {
 		cpu.clearFlag(flagNegative)
 	}
 }
+
+func (cpu *Cpu) slo(instr *instruction, pc uint16) {
+	address, _ := cpu.mustGetAddress(instr.addrMode)
+	value := cpu.bus.Read(address)
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value <<= 1
+	cpu.bus.Write(address, value)
+
+	cpu.a |= value
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}

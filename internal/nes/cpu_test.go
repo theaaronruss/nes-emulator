@@ -326,3 +326,30 @@ func TestOra(t *testing.T) {
 		}
 	}
 }
+
+func TestSlo(t *testing.T) {
+	bus := newFakeSysBus()
+	bus.data[0xFFFC] = 0x00
+	bus.data[0xFFFD] = 0x06
+	bus.data[0x0601] = 0x80
+	bus.data[0x0080] = 0x81
+	cpu := NewCpu(bus)
+	cpu.a = 0x55
+	cpu.clearFlag(flagCarry)
+	cpu.slo(&opcodes[0x07], cpu.pc)
+	if cpu.a != 0x57 {
+		t.Errorf("expected accumulator to be 0x57, got 0x%X", cpu.a)
+	}
+	if bus.data[0x0080] != 0x02 {
+		t.Errorf("expected memory value to be 0x02, got 0x%X", bus.data[0x0080])
+	}
+	if !cpu.testFlag(flagCarry) {
+		t.Errorf("expected carry flag to be true, not false")
+	}
+	if cpu.testFlag(flagZero) {
+		t.Errorf("expected zero flag to be false, not true")
+	}
+	if cpu.testFlag(flagNegative) {
+		t.Errorf("expected negative flag to be false, not true")
+	}
+}
