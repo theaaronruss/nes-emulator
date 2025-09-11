@@ -545,6 +545,17 @@ func TestPhp(t *testing.T) {
 	}
 }
 
+func TestPlp(t *testing.T) {
+	bus := newFakeSysBus()
+	cpu := NewCpu(bus)
+	cpu.pc = 0x0600
+	cpu.stackPush(0xFF) // set and push all flags to stack
+	cpu.plp(addrModeImplied, cpu.pc)
+	if cpu.status&0xCF != 0xCF {
+		t.Errorf("incorrect status flags pushed to stack")
+	}
+}
+
 func TestRla(t *testing.T) {
 	bus := newFakeSysBus()
 	bus.data[0xFFFC] = 0x00

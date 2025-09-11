@@ -390,6 +390,12 @@ func (cpu *Cpu) rla(addrMode addressMode, pc uint16) {
 	}
 }
 
+// pull processor status
+func (cpu *Cpu) plp(addrMode addressMode, pc uint16) {
+	flags := cpu.stackPop()
+	cpu.status = flags & 0xCF
+}
+
 // rotate left
 func (cpu *Cpu) rol(addrMode addressMode, pc uint16) {
 	var value uint8

@@ -29,6 +29,7 @@ const (
 	jsr  = "JSR"
 	ora  = "ORA"
 	php  = "PHP"
+	plp  = "PLP"
 	rol  = "ROL"
 	inop = "*NOP"
 	irla = "*RLA"
@@ -80,7 +81,7 @@ var opcodes = [256]instruction{
 	0x25: {and, addrModeZeroPage, 2, 3, (*Cpu).and},
 	0x26: {rol, addrModeZeroPage, 2, 5, (*Cpu).rol},
 	0x27: {irla, addrModeZeroPage, 2, 5, (*Cpu).rla},
-	// 0x28: {plp, addrModeImplied, 1, 4, pullProcessorStatus},
+	0x28: {plp, addrModeImplied, 1, 4, (*Cpu).plp},
 	0x29: {and, addrModeImmediate, 2, 2, (*Cpu).and},
 	0x2A: {rol, addrModeAccumulator, 1, 2, (*Cpu).rol},
 	0x2C: {bit, addrModeAbsolute, 3, 4, (*Cpu).bit},
