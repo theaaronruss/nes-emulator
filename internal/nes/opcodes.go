@@ -23,6 +23,7 @@ const (
 	adc  = "ADC"
 	and  = "AND"
 	asl  = "ASL"
+	bcc  = "BCC"
 	bit  = "BIT"
 	bmi  = "BMI"
 	bpl  = "BPL"
@@ -35,6 +36,8 @@ const (
 	eor  = "EOR"
 	jmp  = "JMP"
 	jsr  = "JSR"
+	lda  = "LDA"
+	ldy  = "LDY"
 	lsr  = "LSR"
 	ora  = "ORA"
 	pha  = "PHA"
@@ -51,6 +54,8 @@ const (
 	stx  = "STX"
 	sty  = "STY"
 	txa  = "TXA"
+	txs  = "TXS"
+	tya  = "TYA"
 	inop = "*NOP"
 	irla = "*RLA"
 	irra = "*RRA"
@@ -197,43 +202,43 @@ var opcodes = [256]instruction{
 	0x8D: {sta, addrModeAbsolute, 3, 4, (*Cpu).sta},
 	0x8E: {stx, addrModeAbsolute, 3, 4, (*Cpu).stx},
 	0x8F: {isax, addrModeAbsolute, 3, 4, (*Cpu).sax},
-	// 0x90: {bcc, addrModeRelative, 2, 2, branchIfCarryClear},
+	0x90: {bcc, addrModeRelative, 2, 2, (*Cpu).bcc},
 	0x91: {sta, addrModeIndirIndexed, 2, 6, (*Cpu).sta},
 	0x94: {sty, addrModeZeroPageX, 2, 4, (*Cpu).sty},
 	0x95: {sta, addrModeZeroPageX, 2, 4, (*Cpu).sta},
 	0x96: {stx, addrModeZeroPageY, 2, 4, (*Cpu).stx},
 	0x97: {isax, addrModeZeroPageY, 2, 4, (*Cpu).sax},
-	// 0x98: {tya, addrModeImplied, 1, 2, transferYToA},
+	0x98: {tya, addrModeImplied, 1, 2, (*Cpu).tya},
 	0x99: {sta, addrModeAbsoluteY, 3, 5, (*Cpu).sta},
-	// 0x9A: {txs, addrModeImplied, 1, 2, transferXToStackPointer},
+	0x9A: {txs, addrModeImplied, 1, 2, (*Cpu).txs},
 	0x9D: {sta, addrModeAbsoluteX, 3, 5, (*Cpu).sta},
-	// 0xA0: {ldy, addrModeImmediate, 2, 2, loadY},
-	// 0xA1: {lda, addrModeIndexedIndir, 2, 6, loadA},
+	0xA0: {ldy, addrModeImmediate, 2, 2, (*Cpu).ldy},
+	0xA1: {lda, addrModeIndexedIndir, 2, 6, (*Cpu).lda},
 	// 0xA2: {ldx, addrModeImmediate, 2, 2, loadX},
 	// 0xA3: {ilax, addrModeIndexedIndir, 2, 6, illegalLoadALoadX},
-	// 0xA4: {ldy, addrModeZeroPage, 2, 3, loadY},
-	// 0xA5: {lda, addrModeZeroPage, 2, 3, loadA},
+	0xA4: {ldy, addrModeZeroPage, 2, 3, (*Cpu).ldy},
+	0xA5: {lda, addrModeZeroPage, 2, 3, (*Cpu).lda},
 	// 0xA6: {ldx, addrModeZeroPage, 2, 3, loadX},
 	// 0xA7: {ilax, addrModeZeroPage, 2, 3, illegalLoadALoadX},
 	// 0xA8: {tay, addrModeImplied, 1, 2, transferAToY},
-	// 0xA9: {lda, addrModeImmediate, 2, 2, loadA},
+	0xA9: {lda, addrModeImmediate, 2, 2, (*Cpu).lda},
 	// 0xAA: {tax, addrModeImplied, 1, 2, transferAToX},
-	// 0xAC: {ldy, addrModeAbsolute, 3, 4, loadY},
-	// 0xAD: {lda, addrModeAbsolute, 3, 4, loadA},
+	0xAC: {ldy, addrModeAbsolute, 3, 4, (*Cpu).ldy},
+	0xAD: {lda, addrModeAbsolute, 3, 4, (*Cpu).lda},
 	// 0xAE: {ldx, addrModeAbsolute, 3, 4, loadX},
 	// 0xAF: {ilax, addrModeAbsolute, 3, 4, illegalLoadALoadX},
 	// 0xB0: {bcs, addrModeRelative, 2, 2, branchIfCarrySet},
-	// 0xB1: {lda, addrModeIndirIndexed, 2, 5, loadA},
+	0xB1: {lda, addrModeIndirIndexed, 2, 5, (*Cpu).lda},
 	// 0xB3: {ilax, addrModeIndirIndexed, 2, 5, illegalLoadALoadX},
-	// 0xB4: {ldy, addrModeZeroPageX, 2, 4, loadY},
-	// 0xB5: {lda, addrModeZeroPageX, 2, 4, loadA},
+	0xB4: {ldy, addrModeZeroPageX, 2, 4, (*Cpu).ldy},
+	0xB5: {lda, addrModeZeroPageX, 2, 4, (*Cpu).lda},
 	// 0xB6: {ldx, addrModeZeroPageY, 2, 4, loadX},
 	// 0xB7: {ilax, addrModeZeroPageY, 2, 4, illegalLoadALoadX},
 	// 0xB8: {clv, addrModeImplied, 1, 2, clearOverflow},
-	// 0xB9: {lda, addrModeAbsoluteY, 3, 4, loadA},
+	0xB9: {lda, addrModeAbsoluteY, 3, 4, (*Cpu).lda},
 	// 0xBA: {tsx, addrModeImplied, 1, 2, transferStackPointerToX},
-	// 0xBC: {ldy, addrModeAbsoluteX, 3, 4, loadY},
-	// 0xBD: {lda, addrModeAbsoluteX, 3, 4, loadA},
+	0xBC: {ldy, addrModeAbsoluteX, 3, 4, (*Cpu).ldy},
+	0xBD: {lda, addrModeAbsoluteX, 3, 4, (*Cpu).lda},
 	// 0xBE: {ldx, addrModeAbsoluteY, 3, 4, loadX},
 	// 0xBF: {ilax, addrModeAbsoluteY, 3, 4, illegalLoadALoadX},
 	// 0xC0: {cpy, addrModeImmediate, 2, 2, compareY},

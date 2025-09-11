@@ -424,6 +424,47 @@ func TestAsl(t *testing.T) {
 	}
 }
 
+func TestBcc(t *testing.T) {
+	tests := []struct {
+		name     string
+		offset   uint8
+		carry    bool
+		expected uint16
+	}{
+		{
+			name:   "branch taken forward",
+			offset: 0x10, carry: false, expected: 0x0612,
+		},
+		{
+			name:   "branch taken backward",
+			offset: 0xF8, carry: false, expected: 0x05FA,
+		},
+		{
+			name:   "branch not taken",
+			offset: 0x20, carry: true, expected: 0x0600,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.offset
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			if test.carry {
+				cpu.setFlag(flagCarry)
+			} else {
+				cpu.clearFlag(flagCarry)
+			}
+			cpu.bcc(addrModeRelative, cpu.pc)
+			if cpu.pc != test.expected {
+				t.Errorf("%s: expected pc to be 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.pc)
+			}
+		})
+	}
+}
+
 func TestBit(t *testing.T) {
 	tests := []struct {
 		name     string

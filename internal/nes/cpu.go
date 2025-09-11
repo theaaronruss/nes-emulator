@@ -295,6 +295,20 @@ func (cpu *Cpu) asl(addrMode addressMode, pc uint16) {
 	}
 }
 
+// branch if carry clear
+func (cpu *Cpu) bcc(addrMode addressMode, pc uint16) {
+	if cpu.testFlag(flagCarry) {
+		return
+	}
+	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	cpu.pc = address
+
+	cpu.cycleDelay++
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
+}
+
 // bit test
 func (cpu *Cpu) bit(addrMode addressMode, pc uint16) {
 	address, _ := cpu.mustGetAddress(addrMode)
@@ -458,6 +472,62 @@ func (cpu *Cpu) jsr(addrMode addressMode, pc uint16) {
 	cpu.stackPush(high)
 	cpu.stackPush(low)
 	cpu.pc = address
+}
+
+// load a
+func (cpu *Cpu) lda(addrMode addressMode, pc uint16) {
+	var value uint8
+	if addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+		if pageCrossed {
+			cpu.cycleDelay++
+		}
+	}
+
+	cpu.a = value
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// load y
+func (cpu *Cpu) ldy(addrMode addressMode, pc uint16) {
+	var value uint8
+	if addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+		if pageCrossed {
+			cpu.cycleDelay++
+		}
+	}
+
+	cpu.y = value
+
+	if cpu.y == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.y&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
 
 // logical shift right
@@ -723,6 +793,28 @@ func (cpu *Cpu) sty(addrMode addressMode, pc uint16) {
 // transfer x to a
 func (cpu *Cpu) txa(addrMode addressMode, pc uint16) {
 	cpu.a = cpu.x
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// transfer x to stack pointer
+func (cpu *Cpu) txs(addrMode addressMode, pc uint16) {
+	cpu.sp = cpu.x
+}
+
+// transfer y to a
+func (cpu *Cpu) tya(addrMode addressMode, pc uint16) {
+	cpu.a = cpu.y
 
 	if cpu.a == 0 {
 		cpu.setFlag(flagZero)
