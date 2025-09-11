@@ -275,6 +275,20 @@ func (cpu *Cpu) bit(addrMode addressMode, pc uint16) {
 	}
 }
 
+// branch if minus
+func (cpu *Cpu) bmi(addrMode addressMode, pc uint16) {
+	if !cpu.testFlag(flagNegative) {
+		return
+	}
+	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	cpu.pc = address
+
+	cpu.cycleDelay++
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
+}
+
 // branch if plus
 func (cpu *Cpu) bpl(addrMode addressMode, pc uint16) {
 	if cpu.testFlag(flagNegative) {

@@ -404,7 +404,48 @@ func TestBit(t *testing.T) {
 	}
 }
 
-func TestBsl(t *testing.T) {
+func TestBmi(t *testing.T) {
+	tests := []struct {
+		name     string
+		offset   uint8
+		negative bool
+		expected uint16
+	}{
+		{
+			name:   "branch taken forward",
+			offset: 0x23, negative: true, expected: 0x0625,
+		},
+		{
+			name:   "branch taken backward",
+			offset: 0xF8, negative: true, expected: 0x05FA,
+		},
+		{
+			name:   "branch not taken",
+			offset: 0x3A, negative: false, expected: 0x0600,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(t.Name(), func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.offset
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			if test.negative {
+				cpu.setFlag(flagNegative)
+			} else {
+				cpu.clearFlag(flagNegative)
+			}
+			cpu.bmi(addrModeRelative, cpu.pc)
+			if cpu.pc != test.expected {
+				t.Errorf("%s: expected pc to be 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.pc)
+			}
+		})
+	}
+}
+
+func TestBpl(t *testing.T) {
 	tests := []struct {
 		name     string
 		offset   uint8

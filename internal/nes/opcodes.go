@@ -23,6 +23,7 @@ const (
 	and  = "AND"
 	asl  = "ASL"
 	bit  = "BIT"
+	bmi  = "BMI"
 	bpl  = "BPL"
 	brk  = "BRK"
 	clc  = "CLC"
@@ -88,7 +89,7 @@ var opcodes = [256]instruction{
 	0x2D: {and, addrModeAbsolute, 3, 4, (*Cpu).and},
 	0x2E: {rol, addrModeAbsolute, 3, 6, (*Cpu).rol},
 	0x2F: {irla, addrModeAbsolute, 3, 6, (*Cpu).rla},
-	// 0x30: {bmi, addrModeRelative, 2, 2, branchIfMinus},
+	0x30: {bmi, addrModeRelative, 2, 2, (*Cpu).bmi},
 	0x31: {and, addrModeIndirIndexed, 2, 5, (*Cpu).and},
 	0x33: {irla, addrModeIndirIndexed, 2, 8, (*Cpu).rla},
 	0x34: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
