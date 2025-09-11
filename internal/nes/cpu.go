@@ -316,6 +316,20 @@ func (cpu *Cpu) brk(addrMode addressMode, pc uint16) {
 	cpu.pc = uint16(newPcHigh)<<8 | uint16(newPcLow)
 }
 
+// branch if overflow clear
+func (cpu *Cpu) bvc(addrMode addressMode, pc uint16) {
+	if cpu.testFlag(flagOverflow) {
+		return
+	}
+	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	cpu.pc = address
+
+	cpu.cycleDelay++
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
+}
+
 // clear carry
 func (cpu *Cpu) clc(addrMode addressMode, pc uint16) {
 	cpu.clearFlag(flagCarry)
@@ -346,6 +360,12 @@ func (cpu *Cpu) eor(addrMode addressMode, pc uint16) {
 	} else {
 		cpu.clearFlag(flagNegative)
 	}
+}
+
+// jump
+func (cpu *Cpu) jmp(addrMode addressMode, pc uint16) {
+	address, _ := cpu.mustGetAddress(addrMode)
+	cpu.pc = address
 }
 
 // jump to subroutine
@@ -423,6 +443,11 @@ func (cpu *Cpu) ora(addrMode addressMode, pc uint16) {
 	} else {
 		cpu.clearFlag(flagNegative)
 	}
+}
+
+// push a
+func (cpu *Cpu) pha(addrMode addressMode, pc uint16) {
+	cpu.stackPush(cpu.a)
 }
 
 // push processor status

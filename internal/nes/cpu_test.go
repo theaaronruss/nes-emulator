@@ -414,7 +414,7 @@ func TestBmi(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(t.Name(), func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			bus := newFakeSysBus()
 			bus.data[0x0601] = test.offset
 			cpu := NewCpu(bus)
@@ -455,7 +455,7 @@ func TestBpl(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(t.Name(), func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			bus := newFakeSysBus()
 			bus.data[0x0601] = test.offset
 			cpu := NewCpu(bus)
@@ -490,6 +490,47 @@ func TestBrk(t *testing.T) {
 	high := cpu.stackPop()
 	if uint16(low) != oldPc&0x00FF || uint16(high) != oldPc&0xFF00>>8 {
 		t.Errorf("incorrect program counter pushed to stack")
+	}
+}
+
+func TestBvc(t *testing.T) {
+	tests := []struct {
+		name     string
+		offset   uint8
+		overflow bool
+		expected uint16
+	}{
+		{
+			name:   "branch taken forward",
+			offset: 0x23, overflow: false, expected: 0x0625,
+		},
+		{
+			name:   "branch taken backward",
+			offset: 0xF8, overflow: false, expected: 0x05FA,
+		},
+		{
+			name:   "branch not taken",
+			offset: 0x3A, overflow: true, expected: 0x0600,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.offset
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			if test.overflow {
+				cpu.setFlag(flagOverflow)
+			} else {
+				cpu.clearFlag(flagOverflow)
+			}
+			cpu.bvc(addrModeRelative, cpu.pc)
+			if cpu.pc != test.expected {
+				t.Errorf("%s: expected pc to be 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.pc)
+			}
+		})
 	}
 }
 

@@ -26,11 +26,14 @@ const (
 	bmi  = "BMI"
 	bpl  = "BPL"
 	brk  = "BRK"
+	bvc  = "BVC"
 	clc  = "CLC"
 	eor  = "EOR"
+	jmp  = "JMP"
 	jsr  = "JSR"
 	lsr  = "LSR"
 	ora  = "ORA"
+	pha  = "PHA"
 	php  = "PHP"
 	plp  = "PLP"
 	rol  = "ROL"
@@ -116,14 +119,14 @@ var opcodes = [256]instruction{
 	0x45: {eor, addrModeZeroPage, 2, 3, (*Cpu).eor},
 	0x46: {lsr, addrModeZeroPage, 2, 5, (*Cpu).lsr},
 	0x47: {isre, addrModeZeroPage, 2, 5, (*Cpu).sre},
-	// 0x48: {pha, addrModeImplied, 1, 3, pushA},
+	0x48: {pha, addrModeImplied, 1, 3, (*Cpu).pha},
 	0x49: {eor, addrModeImmediate, 2, 2, (*Cpu).eor},
 	0x4A: {lsr, addrModeAccumulator, 1, 2, (*Cpu).lsr},
-	// 0x4C: {jmp, addrModeAbsolute, 3, 3, jump},
+	0x4C: {jmp, addrModeAbsolute, 3, 3, (*Cpu).jmp},
 	0x4D: {eor, addrModeAbsolute, 3, 4, (*Cpu).eor},
 	0x4E: {lsr, addrModeAbsolute, 3, 6, (*Cpu).lsr},
 	0x4F: {isre, addrModeAbsolute, 3, 6, (*Cpu).sre},
-	// 0x50: {bvc, addrModeRelative, 2, 2, branchIfOverflowClear},
+	0x50: {bvc, addrModeRelative, 2, 2, (*Cpu).bvc},
 	0x51: {eor, addrModeIndirIndexed, 2, 5, (*Cpu).eor},
 	0x53: {isre, addrModeIndirIndexed, 2, 8, (*Cpu).sre},
 	0x54: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
@@ -148,7 +151,7 @@ var opcodes = [256]instruction{
 	// 0x68: {pla, addrModeImplied, 1, 4, pullA},
 	// 0x69: {adc, addrModeImmediate, 2, 2, addWithCarry},
 	// 0x6A: {ror, addrModeAccumulator, 1, 2, rotateRight},
-	// 0x6C: {jmp, addrModeIndirect, 3, 5, jump},
+	0x6C: {jmp, addrModeIndirect, 3, 5, (*Cpu).jmp},
 	// 0x6D: {adc, addrModeAbsolute, 3, 4, addWithCarry},
 	// 0x6E: {ror, addrModeAbsolute, 3, 6, rotateRight},
 	// 0x6F: {irra, addrModeAbsolute, 3, 6, illegalRotateRightAndAddWithCarry},
