@@ -184,6 +184,51 @@ func (cpu *Cpu) getIndirectIndexedAddress(offset uint8) (uint16, bool) {
 	}
 }
 
+// add with carry
+func (cpu *Cpu) adc(addrMode addressMode, pc uint16) {
+	var value uint8
+	if addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+		if pageCrossed {
+			cpu.cycleDelay++
+		}
+	}
+
+	result := uint16(cpu.a) + uint16(value)
+	if cpu.testFlag(flagCarry) {
+		result++
+	}
+
+	if result > 255 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	if uint8(result) == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if (uint8(result)^cpu.a)&(uint8(result)^value)&0x80 > 0 {
+		cpu.setFlag(flagOverflow)
+	} else {
+		cpu.clearFlag(flagOverflow)
+	}
+
+	if result&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+
+	cpu.a = uint8(result)
+}
+
 // bitwise and
 func (cpu *Cpu) and(addrMode addressMode, pc uint16) {
 	var value uint8
@@ -335,6 +380,11 @@ func (cpu *Cpu) clc(addrMode addressMode, pc uint16) {
 	cpu.clearFlag(flagCarry)
 }
 
+// clear interrupt disable
+func (cpu *Cpu) cli(addrMode addressMode, pc uint16) {
+	cpu.clearFlag(flagIntDisable)
+}
+
 // bitwise exclusive or
 func (cpu *Cpu) eor(addrMode addressMode, pc uint16) {
 	var value uint8
@@ -457,36 +507,8 @@ func (cpu *Cpu) php(addrMode addressMode, pc uint16) {
 
 // rotate left and bitwise and
 func (cpu *Cpu) rla(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
-	value := cpu.bus.Read(address)
-
-	carry := cpu.testFlag(flagCarry)
-	if value&0x80 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	value <<= 1
-
-	if carry {
-		value |= 0x01
-	}
-
-	cpu.bus.Write(address, value)
-	cpu.a &= value
-
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.rol(addrMode, cpu.pc)
+	cpu.and(addrMode, cpu.pc)
 }
 
 // pull processor status
@@ -538,6 +560,54 @@ func (cpu *Cpu) rol(addrMode addressMode, pc uint16) {
 	}
 }
 
+// rotate right
+func (cpu *Cpu) ror(addrMode addressMode, pc uint16) {
+	var value uint8
+	var address uint16
+	if addrMode == addrModeAccumulator {
+		value = cpu.a
+	} else {
+		address, _ = cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+	}
+
+	carry := cpu.testFlag(flagCarry)
+	if value&0x01 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value >>= 1
+	if carry {
+		value |= 0x80
+	}
+
+	if value == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+
+	if addrMode == addrModeAccumulator {
+		cpu.a = value
+	} else {
+		cpu.bus.Write(address, value)
+	}
+}
+
+// rotate right and add with carry
+func (cpu *Cpu) rra(addrMode addressMode, pc uint16) {
+	cpu.ror(addrMode, pc)
+	cpu.adc(addrMode, cpu.pc)
+}
+
 // return from interrupt
 func (cpu *Cpu) rti(addrMode addressMode, pc uint16) {
 	flags := cpu.stackPop()
@@ -547,6 +617,14 @@ func (cpu *Cpu) rti(addrMode addressMode, pc uint16) {
 	cpu.pc = uint16(high)<<8 | uint16(low)
 }
 
+// return from subroutine
+func (cpu *Cpu) rts(addrMode addressMode, pc uint16) {
+	low := cpu.stackPop()
+	high := cpu.stackPop()
+	address := uint16(high)<<8 | uint16(low)
+	cpu.pc = address + 1
+}
+
 // set carry
 func (cpu *Cpu) sec(addrMode addressMode, pc uint16) {
 	cpu.setFlag(flagCarry)
@@ -554,57 +632,12 @@ func (cpu *Cpu) sec(addrMode addressMode, pc uint16) {
 
 // arithmetic shift left and bitwise or
 func (cpu *Cpu) slo(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
-	value := cpu.bus.Read(address)
-
-	if value&0x80 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	value <<= 1
-	cpu.bus.Write(address, value)
-
-	cpu.a |= value
-
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.asl(addrMode, cpu.pc)
+	cpu.ora(addrMode, cpu.pc)
 }
 
 // logical shift right and bitwise exclusive or
 func (cpu *Cpu) sre(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
-	value := cpu.bus.Read(address)
-
-	if value&0x01 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	value >>= 1
-	cpu.bus.Write(address, value)
-	cpu.a ^= value
-
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.lsr(addrMode, cpu.pc)
+	cpu.eor(addrMode, cpu.pc)
 }

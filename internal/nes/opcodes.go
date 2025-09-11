@@ -20,6 +20,7 @@ const (
 
 // opcode mnemonics
 const (
+	adc  = "ADC"
 	and  = "AND"
 	asl  = "ASL"
 	bit  = "BIT"
@@ -28,6 +29,7 @@ const (
 	brk  = "BRK"
 	bvc  = "BVC"
 	clc  = "CLC"
+	cli  = "CLI"
 	eor  = "EOR"
 	jmp  = "JMP"
 	jsr  = "JSR"
@@ -37,10 +39,13 @@ const (
 	php  = "PHP"
 	plp  = "PLP"
 	rol  = "ROL"
+	ror  = "ROR"
 	rti  = "RTI"
+	rts  = "RTS"
 	sec  = "SEC"
 	inop = "*NOP"
 	irla = "*RLA"
+	irra = "*RRA"
 	islo = "*SLO"
 	isre = "*SRE"
 )
@@ -133,7 +138,7 @@ var opcodes = [256]instruction{
 	0x55: {eor, addrModeZeroPageX, 2, 4, (*Cpu).eor},
 	0x56: {lsr, addrModeZeroPageX, 2, 6, (*Cpu).lsr},
 	0x57: {isre, addrModeZeroPageX, 2, 6, (*Cpu).sre},
-	// 0x58: {cli, addrModeImplied, 1, 2, clearInterruptDisable},
+	0x58: {cli, addrModeImplied, 1, 2, (*Cpu).cli},
 	0x59: {eor, addrModeAbsoluteY, 3, 4, (*Cpu).eor},
 	0x5A: {inop, addrModeImplied, 1, 2, (*Cpu).nop},
 	0x5B: {isre, addrModeAbsoluteY, 3, 7, (*Cpu).sre},
@@ -141,35 +146,35 @@ var opcodes = [256]instruction{
 	0x5D: {eor, addrModeAbsoluteX, 3, 4, (*Cpu).eor},
 	0x5E: {lsr, addrModeAbsoluteX, 3, 7, (*Cpu).lsr},
 	0x5F: {isre, addrModeAbsoluteX, 3, 7, (*Cpu).sre},
-	// 0x60: {rts, addrModeImplied, 1, 6, returnFromSubroutine},
-	// 0x61: {adc, addrModeIndexedIndir, 2, 6, addWithCarry},
-	// 0x63: {irra, addrModeIndexedIndir, 2, 8, illegalRotateRightAndAddWithCarry},
+	0x60: {rts, addrModeImplied, 1, 6, (*Cpu).rts},
+	0x61: {adc, addrModeIndexedIndir, 2, 6, (*Cpu).adc},
+	0x63: {irra, addrModeIndexedIndir, 2, 8, (*Cpu).rra},
 	0x64: {inop, addrModeZeroPage, 2, 3, (*Cpu).nop},
-	// 0x65: {adc, addrModeZeroPage, 2, 3, addWithCarry},
-	// 0x66: {ror, addrModeZeroPage, 2, 5, rotateRight},
-	// 0x67: {irra, addrModeZeroPage, 2, 5, illegalRotateRightAndAddWithCarry},
+	0x65: {adc, addrModeZeroPage, 2, 3, (*Cpu).adc},
+	0x66: {ror, addrModeZeroPage, 2, 5, (*Cpu).ror},
+	0x67: {irra, addrModeZeroPage, 2, 5, (*Cpu).rra},
 	// 0x68: {pla, addrModeImplied, 1, 4, pullA},
-	// 0x69: {adc, addrModeImmediate, 2, 2, addWithCarry},
-	// 0x6A: {ror, addrModeAccumulator, 1, 2, rotateRight},
+	0x69: {adc, addrModeImmediate, 2, 2, (*Cpu).adc},
+	0x6A: {ror, addrModeAccumulator, 1, 2, (*Cpu).ror},
 	0x6C: {jmp, addrModeIndirect, 3, 5, (*Cpu).jmp},
-	// 0x6D: {adc, addrModeAbsolute, 3, 4, addWithCarry},
-	// 0x6E: {ror, addrModeAbsolute, 3, 6, rotateRight},
-	// 0x6F: {irra, addrModeAbsolute, 3, 6, illegalRotateRightAndAddWithCarry},
+	0x6D: {adc, addrModeAbsolute, 3, 4, (*Cpu).adc},
+	0x6E: {ror, addrModeAbsolute, 3, 6, (*Cpu).ror},
+	0x6F: {irra, addrModeAbsolute, 3, 6, (*Cpu).rra},
 	// 0x70: {bvs, addrModeRelative, 2, 2, branchIfOverflowSet},
-	// 0x71: {adc, addrModeIndirIndexed, 2, 5, addWithCarry},
-	// 0x73: {irra, addrModeIndirIndexed, 2, 8, illegalRotateRightAndAddWithCarry},
+	0x71: {adc, addrModeIndirIndexed, 2, 5, (*Cpu).adc},
+	0x73: {irra, addrModeIndirIndexed, 2, 8, (*Cpu).rra},
 	0x74: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
-	// 0x75: {adc, addrModeZeroPageX, 2, 4, addWithCarry},
-	// 0x76: {ror, addrModeZeroPageX, 2, 6, rotateRight},
-	// 0x77: {irra, addrModeZeroPageX, 2, 6, illegalRotateRightAndAddWithCarry},
+	0x75: {adc, addrModeZeroPageX, 2, 4, (*Cpu).adc},
+	0x76: {ror, addrModeZeroPageX, 2, 6, (*Cpu).ror},
+	0x77: {irra, addrModeZeroPageX, 2, 6, (*Cpu).rra},
 	// 0x78: {sei, addrModeImplied, 1, 2, setInterruptDisable},
-	// 0x79: {adc, addrModeAbsoluteY, 3, 4, addWithCarry},
+	0x79: {adc, addrModeAbsoluteY, 3, 4, (*Cpu).adc},
 	0x7A: {inop, addrModeImplied, 1, 2, (*Cpu).nop},
-	// 0x7B: {irra, addrModeAbsoluteY, 3, 7, illegalRotateRightAndAddWithCarry},
+	0x7B: {irra, addrModeAbsoluteY, 3, 7, (*Cpu).rra},
 	0x7C: {inop, addrModeAbsoluteX, 3, 4, (*Cpu).nop},
-	// 0x7D: {adc, addrModeAbsoluteX, 3, 4, addWithCarry},
-	// 0x7E: {ror, addrModeAbsoluteX, 3, 7, rotateRight},
-	// 0x7F: {irra, addrModeAbsoluteX, 3, 7, illegalRotateRightAndAddWithCarry},
+	0x7D: {adc, addrModeAbsoluteX, 3, 4, (*Cpu).adc},
+	0x7E: {ror, addrModeAbsoluteX, 3, 7, (*Cpu).ror},
+	0x7F: {irra, addrModeAbsoluteX, 3, 7, (*Cpu).rra},
 	0x80: {inop, addrModeImmediate, 2, 2, (*Cpu).nop},
 	// 0x81: {sta, addrModeIndexedIndir, 2, 6, storeA},
 	// 0x83: {isax, addrModeIndexedIndir, 2, 6, illegalStoreAAndX},
