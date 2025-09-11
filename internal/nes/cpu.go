@@ -453,6 +453,20 @@ func (cpu *Cpu) rol(addrMode addressMode, pc uint16) {
 	}
 }
 
+// return from interrupt
+func (cpu *Cpu) rti(addrMode addressMode, pc uint16) {
+	flags := cpu.stackPop()
+	low := cpu.stackPop()
+	high := cpu.stackPop()
+	cpu.status = flags & 0xCF
+	cpu.pc = uint16(high)<<8 | uint16(low)
+}
+
+// set carry
+func (cpu *Cpu) sec(addrMode addressMode, pc uint16) {
+	cpu.setFlag(flagCarry)
+}
+
 // arithmetic shift left and bitwise or
 func (cpu *Cpu) slo(addrMode addressMode, pc uint16) {
 	address, _ := cpu.mustGetAddress(addrMode)

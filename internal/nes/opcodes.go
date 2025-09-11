@@ -32,6 +32,8 @@ const (
 	php  = "PHP"
 	plp  = "PLP"
 	rol  = "ROL"
+	rti  = "RTI"
+	sec  = "SEC"
 	inop = "*NOP"
 	irla = "*RLA"
 	islo = "*SLO"
@@ -96,7 +98,7 @@ var opcodes = [256]instruction{
 	0x35: {and, addrModeZeroPageX, 2, 4, (*Cpu).and},
 	0x36: {rol, addrModeZeroPageX, 2, 6, (*Cpu).rol},
 	0x37: {irla, addrModeZeroPageX, 2, 6, (*Cpu).rla},
-	// 0x38: {sec, addrModeImplied, 1, 2, setCarry},
+	0x38: {sec, addrModeImplied, 1, 2, (*Cpu).sec},
 	0x39: {and, addrModeAbsoluteY, 3, 4, (*Cpu).and},
 	0x3A: {inop, addrModeImplied, 1, 2, (*Cpu).nop},
 	0x3B: {irla, addrModeAbsoluteY, 3, 7, (*Cpu).rla},
@@ -104,7 +106,7 @@ var opcodes = [256]instruction{
 	0x3D: {and, addrModeAbsoluteX, 3, 4, (*Cpu).and},
 	0x3E: {rol, addrModeAbsoluteX, 3, 7, (*Cpu).rol},
 	0x3F: {irla, addrModeAbsoluteX, 3, 7, (*Cpu).rla},
-	// 0x40: {rti, addrModeImplied, 1, 6, returnFromInterrupt},
+	0x40: {rti, addrModeImplied, 1, 6, (*Cpu).rti},
 	// 0x41: {eor, addrModeIndexedIndir, 2, 6, bitwiseXor},
 	// 0x43: {isre, addrModeIndexedIndir, 2, 8, illegalLogicalShiftRightAndBitwiseXor},
 	0x44: {inop, addrModeZeroPage, 2, 3, (*Cpu).nop},

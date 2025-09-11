@@ -680,6 +680,19 @@ func TestRol(t *testing.T) {
 	}
 }
 
+func TestRti(t *testing.T) {
+	bus := newFakeSysBus()
+	cpu := NewCpu(bus)
+	cpu.pc = 0x0600
+	cpu.stackPush(0x12)
+	cpu.stackPush(0x34)
+	cpu.stackPush(0xCF)
+	cpu.rti(addrModeImplied, cpu.pc)
+	if cpu.pc != 0x1234 {
+		t.Errorf("returned to incorrect address, got 0x%X", cpu.pc)
+	}
+}
+
 func TestSlo(t *testing.T) {
 	bus := newFakeSysBus()
 	bus.data[0xFFFC] = 0x00
