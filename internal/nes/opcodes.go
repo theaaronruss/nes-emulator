@@ -34,7 +34,9 @@ const (
 	clc  = "CLC"
 	cli  = "CLI"
 	clv  = "CLV"
+	cmp  = "CMP"
 	cpy  = "CPY"
+	dec  = "DEC"
 	dey  = "DEY"
 	eor  = "EOR"
 	jmp  = "JMP"
@@ -63,6 +65,7 @@ const (
 	txa  = "TXA"
 	txs  = "TXS"
 	tya  = "TYA"
+	idcp = "*DCP"
 	ilax = "*LAX"
 	inop = "*NOP"
 	irla = "*RLA"
@@ -250,34 +253,34 @@ var opcodes = [256]instruction{
 	0xBE: {ldx, addrModeAbsoluteY, 3, 4, (*Cpu).ldx},
 	0xBF: {ilax, addrModeAbsoluteY, 3, 4, (*Cpu).lax},
 	0xC0: {cpy, addrModeImmediate, 2, 2, (*Cpu).cpy},
-	// 0xC1: {cmp, addrModeIndexedIndir, 2, 6, compareA},
-	// 0xC3: {idcp, addrModeIndexedIndir, 2, 8, illegalDecrementAndCompare},
+	0xC1: {cmp, addrModeIndexedIndir, 2, 6, (*Cpu).cmp},
+	0xC3: {idcp, addrModeIndexedIndir, 2, 8, (*Cpu).dcp},
 	0xC4: {cpy, addrModeZeroPage, 2, 3, (*Cpu).cpy},
-	// 0xC5: {cmp, addrModeZeroPage, 2, 3, compareA},
-	// 0xC6: {dec, addrModeZeroPage, 2, 5, decrementMemory},
-	// 0xC7: {idcp, addrModeZeroPage, 2, 5, illegalDecrementAndCompare},
+	0xC5: {cmp, addrModeZeroPage, 2, 3, (*Cpu).cmp},
+	0xC6: {dec, addrModeZeroPage, 2, 5, (*Cpu).dec},
+	0xC7: {idcp, addrModeZeroPage, 2, 5, (*Cpu).dcp},
 	// 0xC8: {iny, addrModeImplied, 1, 2, incrementY},
-	// 0xC9: {cmp, addrModeImmediate, 2, 2, compareA},
+	0xC9: {cmp, addrModeImmediate, 2, 2, (*Cpu).cmp},
 	// 0xCA: {dex, addrModeImplied, 1, 2, decrementX},
 	0xCC: {cpy, addrModeAbsolute, 3, 4, (*Cpu).cpy},
-	// 0xCD: {cmp, addrModeAbsolute, 3, 4, compareA},
-	// 0xCE: {dec, addrModeAbsolute, 3, 6, decrementMemory},
-	// 0xCF: {idcp, addrModeAbsolute, 3, 6, illegalDecrementAndCompare},
+	0xCD: {cmp, addrModeAbsolute, 3, 4, (*Cpu).cmp},
+	0xCE: {dec, addrModeAbsolute, 3, 6, (*Cpu).dec},
+	0xCF: {idcp, addrModeAbsolute, 3, 6, (*Cpu).dcp},
 	// 0xD0: {bne, addrModeRelative, 2, 2, branchIfNotEqual},
-	// 0xD1: {cmp, addrModeIndirIndexed, 2, 5, compareA},
-	// 0xD3: {idcp, addrModeIndirIndexed, 2, 8, illegalDecrementAndCompare},
+	0xD1: {cmp, addrModeIndirIndexed, 2, 5, (*Cpu).cmp},
+	0xD3: {idcp, addrModeIndirIndexed, 2, 8, (*Cpu).dcp},
 	0xD4: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
-	// 0xD5: {cmp, addrModeZeroPageX, 2, 4, compareA},
-	// 0xD6: {dec, addrModeZeroPageX, 2, 6, decrementMemory},
-	// 0xD7: {idcp, addrModeZeroPageX, 2, 6, illegalDecrementAndCompare},
+	0xD5: {cmp, addrModeZeroPageX, 2, 4, (*Cpu).cmp},
+	0xD6: {dec, addrModeZeroPageX, 2, 6, (*Cpu).dec},
+	0xD7: {idcp, addrModeZeroPageX, 2, 6, (*Cpu).dcp},
 	// 0xD8: {cld, addrModeImplied, 1, 2, clearDecimal},
-	// 0xD9: {cmp, addrModeAbsoluteY, 3, 4, compareA},
+	0xD9: {cmp, addrModeAbsoluteY, 3, 4, (*Cpu).cmp},
 	0xDA: {inop, addrModeImplied, 1, 2, (*Cpu).nop},
-	// 0xDB: {idcp, addrModeAbsoluteY, 3, 7, illegalDecrementAndCompare},
+	0xDB: {idcp, addrModeAbsoluteY, 3, 7, (*Cpu).dcp},
 	0xDC: {inop, addrModeAbsoluteX, 3, 4, (*Cpu).nop},
-	// 0xDD: {cmp, addrModeAbsoluteX, 3, 4, compareA},
-	// 0xDE: {dec, addrModeAbsoluteX, 3, 7, decrementMemory},
-	// 0xDF: {idcp, addrModeAbsoluteX, 3, 7, illegalDecrementAndCompare},
+	0xDD: {cmp, addrModeAbsoluteX, 3, 4, (*Cpu).cmp},
+	0xDE: {dec, addrModeAbsoluteX, 3, 7, (*Cpu).dec},
+	0xDF: {idcp, addrModeAbsoluteX, 3, 7, (*Cpu).dcp},
 	// 0xE0: {cpx, addrModeImmediate, 2, 2, compareX},
 	// 0xE1: {sbc, addrModeIndexedIndir, 2, 6, subtractWithCarry},
 	// 0xE3: {iisb, addrModeIndexedIndir, 2, 8, illegalIncrementSubtractWithCarry},

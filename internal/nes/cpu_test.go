@@ -738,6 +738,49 @@ func TestBvs(t *testing.T) {
 	}
 }
 
+func TestCmp(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        uint8
+		memory   uint8
+		zero     bool
+		carry    bool
+		negative bool
+	}{
+		{
+			name: "equal values",
+			a:    0x42, memory: 0x42, zero: true, carry: true, negative: false,
+		},
+		{
+			name: "not equal values",
+			a:    0x10, memory: 0x20, zero: false, carry: false, negative: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.memory
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			cpu.a = test.a
+			cpu.cmp(addrModeImmediate, cpu.pc)
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("%s: expected zero flag to be %v, got %v", t.Name(),
+					test.zero, cpu.testFlag(flagZero))
+			}
+			if cpu.testFlag(flagCarry) != test.carry {
+				t.Errorf("%s: expected carry flag to be %v, got %v", t.Name(),
+					test.carry, cpu.testFlag(flagCarry))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("%s: expected negative flag to be %v, got %v", t.Name(),
+					test.negative, cpu.testFlag(flagNegative))
+			}
+		})
+	}
+}
+
 func TestCpy(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -766,13 +809,16 @@ func TestCpy(t *testing.T) {
 			cpu.y = test.y
 			cpu.cpy(addrModeImmediate, cpu.pc)
 			if cpu.testFlag(flagZero) != test.zero {
-				t.Errorf("%s: expected zero flag to be %v, got %v", t.Name(), test.zero, cpu.testFlag(flagZero))
+				t.Errorf("%s: expected zero flag to be %v, got %v", t.Name(),
+					test.zero, cpu.testFlag(flagZero))
 			}
 			if cpu.testFlag(flagCarry) != test.carry {
-				t.Errorf("%s: expected carry flag to be %v, got %v", t.Name(), test.carry, cpu.testFlag(flagCarry))
+				t.Errorf("%s: expected carry flag to be %v, got %v", t.Name(),
+					test.carry, cpu.testFlag(flagCarry))
 			}
 			if cpu.testFlag(flagNegative) != test.negative {
-				t.Errorf("%s: expected negative flag to be %v, got %v", t.Name(), test.negative, cpu.testFlag(flagNegative))
+				t.Errorf("%s: expected negative flag to be %v, got %v", t.Name(),
+					test.negative, cpu.testFlag(flagNegative))
 			}
 		})
 	}

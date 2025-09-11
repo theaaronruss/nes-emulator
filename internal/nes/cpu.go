@@ -432,6 +432,40 @@ func (cpu *Cpu) clv(addrMode addressMode, pc uint16) {
 	cpu.clearFlag(flagOverflow)
 }
 
+// compare a
+func (cpu *Cpu) cmp(addrMode addressMode, pc uint16) {
+	var value uint8
+	if addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+		if pageCrossed {
+			cpu.cycleDelay++
+		}
+	}
+
+	result := cpu.a - value
+
+	if cpu.a >= value {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	if cpu.a == value {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if result&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
 // compare y
 func (cpu *Cpu) cpy(addrMode addressMode, pc uint16) {
 	var value uint8
@@ -463,6 +497,12 @@ func (cpu *Cpu) cpy(addrMode addressMode, pc uint16) {
 	}
 }
 
+// decrement memory and compare a
+func (cpu *Cpu) dcp(addrMode addressMode, pc uint16) {
+	cpu.dec(addrMode, cpu.pc)
+	cpu.cmp(addrMode, cpu.pc)
+}
+
 // decrement y
 func (cpu *Cpu) dey(addrMode addressMode, pc uint16) {
 	cpu.y--
@@ -474,6 +514,26 @@ func (cpu *Cpu) dey(addrMode addressMode, pc uint16) {
 	}
 
 	if cpu.y&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// decrement memory
+func (cpu *Cpu) dec(addrMode addressMode, pc uint16) {
+	address, _ := cpu.mustGetAddress(addrMode)
+	value := cpu.bus.Read(address)
+	value--
+	cpu.bus.Write(address, value)
+
+	if value == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
 		cpu.setFlag(flagNegative)
 	} else {
 		cpu.clearFlag(flagNegative)
