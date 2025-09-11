@@ -399,6 +399,23 @@ func (cpu *Cpu) cli(addrMode addressMode, pc uint16) {
 	cpu.clearFlag(flagIntDisable)
 }
 
+// decrement y
+func (cpu *Cpu) dey(addrMode addressMode, pc uint16) {
+	cpu.y--
+
+	if cpu.y == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.y&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
 // bitwise exclusive or
 func (cpu *Cpu) eor(addrMode addressMode, pc uint16) {
 	var value uint8
@@ -656,9 +673,21 @@ func (cpu *Cpu) rts(addrMode addressMode, pc uint16) {
 	cpu.pc = address + 1
 }
 
+// store a and x
+func (cpu *Cpu) sax(addrMode addressMode, pc uint16) {
+	address, _ := cpu.mustGetAddress(addrMode)
+	value := cpu.a & cpu.x
+	cpu.bus.Write(address, value)
+}
+
 // set carry
 func (cpu *Cpu) sec(addrMode addressMode, pc uint16) {
 	cpu.setFlag(flagCarry)
+}
+
+// set interrupt disable
+func (cpu *Cpu) sei(addrMode addressMode, pc uint16) {
+	cpu.setFlag(flagIntDisable)
 }
 
 // arithmetic shift left and bitwise or
@@ -671,4 +700,39 @@ func (cpu *Cpu) slo(addrMode addressMode, pc uint16) {
 func (cpu *Cpu) sre(addrMode addressMode, pc uint16) {
 	cpu.lsr(addrMode, cpu.pc)
 	cpu.eor(addrMode, cpu.pc)
+}
+
+// store a
+func (cpu *Cpu) sta(addrMode addressMode, pc uint16) {
+	address, _ := cpu.mustGetAddress(addrMode)
+	cpu.bus.Write(address, cpu.a)
+}
+
+// store x
+func (cpu *Cpu) stx(addrMode addressMode, pc uint16) {
+	address, _ := cpu.mustGetAddress(addrMode)
+	cpu.bus.Write(address, cpu.x)
+}
+
+// store y
+func (cpu *Cpu) sty(addrMode addressMode, pc uint16) {
+	address, _ := cpu.mustGetAddress(addrMode)
+	cpu.bus.Write(address, cpu.y)
+}
+
+// transfer x to a
+func (cpu *Cpu) txa(addrMode addressMode, pc uint16) {
+	cpu.a = cpu.x
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
