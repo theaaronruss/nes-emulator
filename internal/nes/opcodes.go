@@ -24,6 +24,7 @@ const (
 	and  = "AND"
 	asl  = "ASL"
 	bcc  = "BCC"
+	bcs  = "BCS"
 	bit  = "BIT"
 	bmi  = "BMI"
 	bpl  = "BPL"
@@ -32,11 +33,14 @@ const (
 	bvs  = "BVS"
 	clc  = "CLC"
 	cli  = "CLI"
+	clv  = "CLV"
+	cpy  = "CPY"
 	dey  = "DEY"
 	eor  = "EOR"
 	jmp  = "JMP"
 	jsr  = "JSR"
 	lda  = "LDA"
+	ldx  = "LDX"
 	ldy  = "LDY"
 	lsr  = "LSR"
 	ora  = "ORA"
@@ -53,9 +57,13 @@ const (
 	sta  = "STA"
 	stx  = "STX"
 	sty  = "STY"
+	tax  = "TAX"
+	tay  = "TAY"
+	tsx  = "TSX"
 	txa  = "TXA"
 	txs  = "TXS"
 	tya  = "TYA"
+	ilax = "*LAX"
 	inop = "*NOP"
 	irla = "*RLA"
 	irra = "*RRA"
@@ -214,44 +222,44 @@ var opcodes = [256]instruction{
 	0x9D: {sta, addrModeAbsoluteX, 3, 5, (*Cpu).sta},
 	0xA0: {ldy, addrModeImmediate, 2, 2, (*Cpu).ldy},
 	0xA1: {lda, addrModeIndexedIndir, 2, 6, (*Cpu).lda},
-	// 0xA2: {ldx, addrModeImmediate, 2, 2, loadX},
-	// 0xA3: {ilax, addrModeIndexedIndir, 2, 6, illegalLoadALoadX},
+	0xA2: {ldx, addrModeImmediate, 2, 2, (*Cpu).ldx},
+	0xA3: {ilax, addrModeIndexedIndir, 2, 6, (*Cpu).lax},
 	0xA4: {ldy, addrModeZeroPage, 2, 3, (*Cpu).ldy},
 	0xA5: {lda, addrModeZeroPage, 2, 3, (*Cpu).lda},
-	// 0xA6: {ldx, addrModeZeroPage, 2, 3, loadX},
-	// 0xA7: {ilax, addrModeZeroPage, 2, 3, illegalLoadALoadX},
-	// 0xA8: {tay, addrModeImplied, 1, 2, transferAToY},
+	0xA6: {ldx, addrModeZeroPage, 2, 3, (*Cpu).ldx},
+	0xA7: {ilax, addrModeZeroPage, 2, 3, (*Cpu).lax},
+	0xA8: {tay, addrModeImplied, 1, 2, (*Cpu).tay},
 	0xA9: {lda, addrModeImmediate, 2, 2, (*Cpu).lda},
-	// 0xAA: {tax, addrModeImplied, 1, 2, transferAToX},
+	0xAA: {tax, addrModeImplied, 1, 2, (*Cpu).tax},
 	0xAC: {ldy, addrModeAbsolute, 3, 4, (*Cpu).ldy},
 	0xAD: {lda, addrModeAbsolute, 3, 4, (*Cpu).lda},
-	// 0xAE: {ldx, addrModeAbsolute, 3, 4, loadX},
-	// 0xAF: {ilax, addrModeAbsolute, 3, 4, illegalLoadALoadX},
-	// 0xB0: {bcs, addrModeRelative, 2, 2, branchIfCarrySet},
+	0xAE: {ldx, addrModeAbsolute, 3, 4, (*Cpu).ldx},
+	0xAF: {ilax, addrModeAbsolute, 3, 4, (*Cpu).lax},
+	0xB0: {bcs, addrModeRelative, 2, 2, (*Cpu).bcs},
 	0xB1: {lda, addrModeIndirIndexed, 2, 5, (*Cpu).lda},
-	// 0xB3: {ilax, addrModeIndirIndexed, 2, 5, illegalLoadALoadX},
+	0xB3: {ilax, addrModeIndirIndexed, 2, 5, (*Cpu).lax},
 	0xB4: {ldy, addrModeZeroPageX, 2, 4, (*Cpu).ldy},
 	0xB5: {lda, addrModeZeroPageX, 2, 4, (*Cpu).lda},
-	// 0xB6: {ldx, addrModeZeroPageY, 2, 4, loadX},
-	// 0xB7: {ilax, addrModeZeroPageY, 2, 4, illegalLoadALoadX},
-	// 0xB8: {clv, addrModeImplied, 1, 2, clearOverflow},
+	0xB6: {ldx, addrModeZeroPageY, 2, 4, (*Cpu).ldx},
+	0xB7: {ilax, addrModeZeroPageY, 2, 4, (*Cpu).lax},
+	0xB8: {clv, addrModeImplied, 1, 2, (*Cpu).clv},
 	0xB9: {lda, addrModeAbsoluteY, 3, 4, (*Cpu).lda},
-	// 0xBA: {tsx, addrModeImplied, 1, 2, transferStackPointerToX},
+	0xBA: {tsx, addrModeImplied, 1, 2, (*Cpu).tsx},
 	0xBC: {ldy, addrModeAbsoluteX, 3, 4, (*Cpu).ldy},
 	0xBD: {lda, addrModeAbsoluteX, 3, 4, (*Cpu).lda},
-	// 0xBE: {ldx, addrModeAbsoluteY, 3, 4, loadX},
-	// 0xBF: {ilax, addrModeAbsoluteY, 3, 4, illegalLoadALoadX},
-	// 0xC0: {cpy, addrModeImmediate, 2, 2, compareY},
+	0xBE: {ldx, addrModeAbsoluteY, 3, 4, (*Cpu).ldx},
+	0xBF: {ilax, addrModeAbsoluteY, 3, 4, (*Cpu).lax},
+	0xC0: {cpy, addrModeImmediate, 2, 2, (*Cpu).cpy},
 	// 0xC1: {cmp, addrModeIndexedIndir, 2, 6, compareA},
 	// 0xC3: {idcp, addrModeIndexedIndir, 2, 8, illegalDecrementAndCompare},
-	// 0xC4: {cpy, addrModeZeroPage, 2, 3, compareY},
+	0xC4: {cpy, addrModeZeroPage, 2, 3, (*Cpu).cpy},
 	// 0xC5: {cmp, addrModeZeroPage, 2, 3, compareA},
 	// 0xC6: {dec, addrModeZeroPage, 2, 5, decrementMemory},
 	// 0xC7: {idcp, addrModeZeroPage, 2, 5, illegalDecrementAndCompare},
 	// 0xC8: {iny, addrModeImplied, 1, 2, incrementY},
 	// 0xC9: {cmp, addrModeImmediate, 2, 2, compareA},
 	// 0xCA: {dex, addrModeImplied, 1, 2, decrementX},
-	// 0xCC: {cpy, addrModeAbsolute, 3, 4, compareY},
+	0xCC: {cpy, addrModeAbsolute, 3, 4, (*Cpu).cpy},
 	// 0xCD: {cmp, addrModeAbsolute, 3, 4, compareA},
 	// 0xCE: {dec, addrModeAbsolute, 3, 6, decrementMemory},
 	// 0xCF: {idcp, addrModeAbsolute, 3, 6, illegalDecrementAndCompare},

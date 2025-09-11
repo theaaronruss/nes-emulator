@@ -295,6 +295,20 @@ func (cpu *Cpu) asl(addrMode addressMode, pc uint16) {
 	}
 }
 
+// branch if carry set
+func (cpu *Cpu) bcs(addrMode addressMode, pc uint16) {
+	if !cpu.testFlag(flagCarry) {
+		return
+	}
+	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	cpu.pc = address
+
+	cpu.cycleDelay++
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
+}
+
 // branch if carry clear
 func (cpu *Cpu) bcc(addrMode addressMode, pc uint16) {
 	if cpu.testFlag(flagCarry) {
@@ -413,6 +427,42 @@ func (cpu *Cpu) cli(addrMode addressMode, pc uint16) {
 	cpu.clearFlag(flagIntDisable)
 }
 
+// clear overflow
+func (cpu *Cpu) clv(addrMode addressMode, pc uint16) {
+	cpu.clearFlag(flagOverflow)
+}
+
+// compare y
+func (cpu *Cpu) cpy(addrMode addressMode, pc uint16) {
+	var value uint8
+	if addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, _ := cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+	}
+
+	result := cpu.y - value
+
+	if cpu.y >= value {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	if cpu.y == value {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if result&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
 // decrement y
 func (cpu *Cpu) dey(addrMode addressMode, pc uint16) {
 	cpu.y--
@@ -474,6 +524,12 @@ func (cpu *Cpu) jsr(addrMode addressMode, pc uint16) {
 	cpu.pc = address
 }
 
+// load a and load x
+func (cpu *Cpu) lax(addrMode addressMode, pc uint16) {
+	cpu.lda(addrMode, cpu.pc)
+	cpu.ldx(addrMode, cpu.pc)
+}
+
 // load a
 func (cpu *Cpu) lda(addrMode addressMode, pc uint16) {
 	var value uint8
@@ -496,6 +552,34 @@ func (cpu *Cpu) lda(addrMode addressMode, pc uint16) {
 	}
 
 	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// load x
+func (cpu *Cpu) ldx(addrMode addressMode, pc uint16) {
+	var value uint8
+	if addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+		if pageCrossed {
+			cpu.cycleDelay++
+		}
+	}
+
+	cpu.x = value
+
+	if cpu.x == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.x&0x80 > 0 {
 		cpu.setFlag(flagNegative)
 	} else {
 		cpu.clearFlag(flagNegative)
@@ -788,6 +872,56 @@ func (cpu *Cpu) stx(addrMode addressMode, pc uint16) {
 func (cpu *Cpu) sty(addrMode addressMode, pc uint16) {
 	address, _ := cpu.mustGetAddress(addrMode)
 	cpu.bus.Write(address, cpu.y)
+}
+
+// transfer a to x
+func (cpu *Cpu) tax(addrMode addressMode, pc uint16) {
+	cpu.x = cpu.a
+
+	if cpu.x == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.x&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// transfer a to y
+func (cpu *Cpu) tay(addrMode addressMode, pc uint16) {
+	cpu.y = cpu.a
+
+	if cpu.y == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.y&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// transfer stack pointer to x
+func (cpu *Cpu) tsx(addrMode addressMode, pc uint16) {
+	cpu.x = cpu.sp
+
+	if cpu.x == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+	if cpu.x&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
 
 // transfer x to a

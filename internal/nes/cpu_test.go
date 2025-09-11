@@ -465,6 +465,47 @@ func TestBcc(t *testing.T) {
 	}
 }
 
+func TestBcs(t *testing.T) {
+	tests := []struct {
+		name     string
+		offset   uint8
+		carry    bool
+		expected uint16
+	}{
+		{
+			name:   "branch taken forward",
+			offset: 0x10, carry: true, expected: 0x0612,
+		},
+		{
+			name:   "branch taken backward",
+			offset: 0xF8, carry: true, expected: 0x05FA,
+		},
+		{
+			name:   "branch not taken",
+			offset: 0x20, carry: false, expected: 0x0600,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.offset
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			if test.carry {
+				cpu.setFlag(flagCarry)
+			} else {
+				cpu.clearFlag(flagCarry)
+			}
+			cpu.bcs(addrModeRelative, cpu.pc)
+			if cpu.pc != test.expected {
+				t.Errorf("%s: expected pc to be 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.pc)
+			}
+		})
+	}
+}
+
 func TestBit(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -692,6 +733,46 @@ func TestBvs(t *testing.T) {
 			if cpu.pc != test.expected {
 				t.Errorf("%s: expected pc to be 0x%X, got 0x%X", t.Name(),
 					test.expected, cpu.pc)
+			}
+		})
+	}
+}
+
+func TestCpy(t *testing.T) {
+	tests := []struct {
+		name     string
+		y        uint8
+		memory   uint8
+		zero     bool
+		carry    bool
+		negative bool
+	}{
+		{
+			name: "equal values",
+			y:    0x42, memory: 0x42, zero: true, carry: true, negative: false,
+		},
+		{
+			name: "not equal values",
+			y:    0x10, memory: 0x20, zero: false, carry: false, negative: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.memory
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			cpu.y = test.y
+			cpu.cpy(addrModeImmediate, cpu.pc)
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("%s: expected zero flag to be %v, got %v", t.Name(), test.zero, cpu.testFlag(flagZero))
+			}
+			if cpu.testFlag(flagCarry) != test.carry {
+				t.Errorf("%s: expected carry flag to be %v, got %v", t.Name(), test.carry, cpu.testFlag(flagCarry))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("%s: expected negative flag to be %v, got %v", t.Name(), test.negative, cpu.testFlag(flagNegative))
 			}
 		})
 	}
