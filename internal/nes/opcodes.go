@@ -38,6 +38,7 @@ const (
 	inop = "*NOP"
 	irla = "*RLA"
 	islo = "*SLO"
+	isre = "*SRE"
 )
 
 type instruction struct {
@@ -109,33 +110,33 @@ var opcodes = [256]instruction{
 	0x3F: {irla, addrModeAbsoluteX, 3, 7, (*Cpu).rla},
 	0x40: {rti, addrModeImplied, 1, 6, (*Cpu).rti},
 	0x41: {eor, addrModeIndexedIndir, 2, 6, (*Cpu).eor},
-	// 0x43: {isre, addrModeIndexedIndir, 2, 8, illegalLogicalShiftRightAndBitwiseXor},
+	0x43: {isre, addrModeIndexedIndir, 2, 8, (*Cpu).sre},
 	0x44: {inop, addrModeZeroPage, 2, 3, (*Cpu).nop},
 	0x45: {eor, addrModeZeroPage, 2, 3, (*Cpu).eor},
 	// 0x46: {lsr, addrModeZeroPage, 2, 5, logicalShiftRight},
-	// 0x47: {isre, addrModeZeroPage, 2, 5, illegalLogicalShiftRightAndBitwiseXor},
+	0x47: {isre, addrModeZeroPage, 2, 5, (*Cpu).sre},
 	// 0x48: {pha, addrModeImplied, 1, 3, pushA},
 	0x49: {eor, addrModeImmediate, 2, 2, (*Cpu).eor},
 	// 0x4A: {lsr, addrModeAccumulator, 1, 2, logicalShiftRight},
 	// 0x4C: {jmp, addrModeAbsolute, 3, 3, jump},
 	0x4D: {eor, addrModeAbsolute, 3, 4, (*Cpu).eor},
 	// 0x4E: {lsr, addrModeAbsolute, 3, 6, logicalShiftRight},
-	// 0x4F: {isre, addrModeAbsolute, 3, 6, illegalLogicalShiftRightAndBitwiseXor},
+	0x4F: {isre, addrModeAbsolute, 3, 6, (*Cpu).sre},
 	// 0x50: {bvc, addrModeRelative, 2, 2, branchIfOverflowClear},
 	0x51: {eor, addrModeIndirIndexed, 2, 5, (*Cpu).eor},
-	// 0x53: {isre, addrModeIndirIndexed, 2, 8, illegalLogicalShiftRightAndBitwiseXor},
+	0x53: {isre, addrModeIndirIndexed, 2, 8, (*Cpu).sre},
 	0x54: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
 	0x55: {eor, addrModeZeroPageX, 2, 4, (*Cpu).eor},
 	// 0x56: {lsr, addrModeZeroPageX, 2, 6, logicalShiftRight},
-	// 0x57: {isre, addrModeZeroPageX, 2, 6, illegalLogicalShiftRightAndBitwiseXor},
+	0x57: {isre, addrModeZeroPageX, 2, 6, (*Cpu).sre},
 	// 0x58: {cli, addrModeImplied, 1, 2, clearInterruptDisable},
 	0x59: {eor, addrModeAbsoluteY, 3, 4, (*Cpu).eor},
 	0x5A: {inop, addrModeImplied, 1, 2, (*Cpu).nop},
-	// 0x5B: {isre, addrModeAbsoluteY, 3, 7, illegalLogicalShiftRightAndBitwiseXor},
+	0x5B: {isre, addrModeAbsoluteY, 3, 7, (*Cpu).sre},
 	0x5C: {inop, addrModeAbsoluteX, 3, 4, (*Cpu).nop},
 	0x5D: {eor, addrModeAbsoluteX, 3, 4, (*Cpu).eor},
 	// 0x5E: {lsr, addrModeAbsoluteX, 3, 7, logicalShiftRight},
-	// 0x5F: {isre, addrModeAbsoluteX, 3, 7, illegalLogicalShiftRightAndBitwiseXor},
+	0x5F: {isre, addrModeAbsoluteX, 3, 7, (*Cpu).sre},
 	// 0x60: {rts, addrModeImplied, 1, 6, returnFromSubroutine},
 	// 0x61: {adc, addrModeIndexedIndir, 2, 6, addWithCarry},
 	// 0x63: {irra, addrModeIndexedIndir, 2, 8, illegalRotateRightAndAddWithCarry},

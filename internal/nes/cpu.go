@@ -522,3 +522,31 @@ func (cpu *Cpu) slo(addrMode addressMode, pc uint16) {
 		cpu.clearFlag(flagNegative)
 	}
 }
+
+// logical shift right and bitwise exclusive or
+func (cpu *Cpu) sre(addrMode addressMode, pc uint16) {
+	address, _ := cpu.mustGetAddress(addrMode)
+	value := cpu.bus.Read(address)
+
+	if value&0x01 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value >>= 1
+	cpu.bus.Write(address, value)
+	cpu.a ^= value
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
