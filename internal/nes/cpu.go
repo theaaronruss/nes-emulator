@@ -362,6 +362,20 @@ func (cpu *Cpu) bmi(addrMode addressMode, pc uint16) {
 	}
 }
 
+// branch if not equal
+func (cpu *Cpu) bne(addrMode addressMode, pc uint16) {
+	if cpu.testFlag(flagZero) {
+		return
+	}
+	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	cpu.pc = address
+
+	cpu.cycleDelay++
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
+}
+
 // branch if plus
 func (cpu *Cpu) bpl(addrMode addressMode, pc uint16) {
 	if cpu.testFlag(flagNegative) {
@@ -422,6 +436,11 @@ func (cpu *Cpu) clc(addrMode addressMode, pc uint16) {
 	cpu.clearFlag(flagCarry)
 }
 
+// clear decimal
+func (cpu *Cpu) cld(addrMode addressMode, pc uint16) {
+	cpu.clearFlag(flagDecimal)
+}
+
 // clear interrupt disable
 func (cpu *Cpu) cli(addrMode addressMode, pc uint16) {
 	cpu.clearFlag(flagIntDisable)
@@ -454,6 +473,37 @@ func (cpu *Cpu) cmp(addrMode addressMode, pc uint16) {
 	}
 
 	if cpu.a == value {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if result&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// compare x
+func (cpu *Cpu) cpx(addrMode addressMode, pc uint16) {
+	var value uint8
+	if addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, _ := cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+	}
+
+	result := cpu.x - value
+
+	if cpu.x >= value {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	if cpu.x == value {
 		cpu.setFlag(flagZero)
 	} else {
 		cpu.clearFlag(flagZero)
@@ -501,6 +551,23 @@ func (cpu *Cpu) cpy(addrMode addressMode, pc uint16) {
 func (cpu *Cpu) dcp(addrMode addressMode, pc uint16) {
 	cpu.dec(addrMode, cpu.pc)
 	cpu.cmp(addrMode, cpu.pc)
+}
+
+// decrement x
+func (cpu *Cpu) dex(addrMode addressMode, pc uint16) {
+	cpu.x--
+
+	if cpu.x == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.x&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
 
 // decrement y
@@ -561,6 +628,23 @@ func (cpu *Cpu) eor(addrMode addressMode, pc uint16) {
 		cpu.clearFlag(flagZero)
 	}
 	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// increment y
+func (cpu *Cpu) iny(addrMode addressMode, pc uint16) {
+	cpu.y++
+
+	if cpu.y == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.y&0x80 > 0 {
 		cpu.setFlag(flagNegative)
 	} else {
 		cpu.clearFlag(flagNegative)

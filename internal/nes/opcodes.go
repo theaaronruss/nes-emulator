@@ -27,18 +27,23 @@ const (
 	bcs  = "BCS"
 	bit  = "BIT"
 	bmi  = "BMI"
+	bne  = "BNE"
 	bpl  = "BPL"
 	brk  = "BRK"
 	bvc  = "BVC"
 	bvs  = "BVS"
 	clc  = "CLC"
+	cld  = "CLD"
 	cli  = "CLI"
 	clv  = "CLV"
 	cmp  = "CMP"
+	cpx  = "CPX"
 	cpy  = "CPY"
 	dec  = "DEC"
+	dex  = "DEX"
 	dey  = "DEY"
 	eor  = "EOR"
+	iny  = "INY"
 	jmp  = "JMP"
 	jsr  = "JSR"
 	lda  = "LDA"
@@ -259,21 +264,21 @@ var opcodes = [256]instruction{
 	0xC5: {cmp, addrModeZeroPage, 2, 3, (*Cpu).cmp},
 	0xC6: {dec, addrModeZeroPage, 2, 5, (*Cpu).dec},
 	0xC7: {idcp, addrModeZeroPage, 2, 5, (*Cpu).dcp},
-	// 0xC8: {iny, addrModeImplied, 1, 2, incrementY},
+	0xC8: {iny, addrModeImplied, 1, 2, (*Cpu).iny},
 	0xC9: {cmp, addrModeImmediate, 2, 2, (*Cpu).cmp},
-	// 0xCA: {dex, addrModeImplied, 1, 2, decrementX},
+	0xCA: {dex, addrModeImplied, 1, 2, (*Cpu).dex},
 	0xCC: {cpy, addrModeAbsolute, 3, 4, (*Cpu).cpy},
 	0xCD: {cmp, addrModeAbsolute, 3, 4, (*Cpu).cmp},
 	0xCE: {dec, addrModeAbsolute, 3, 6, (*Cpu).dec},
 	0xCF: {idcp, addrModeAbsolute, 3, 6, (*Cpu).dcp},
-	// 0xD0: {bne, addrModeRelative, 2, 2, branchIfNotEqual},
+	0xD0: {bne, addrModeRelative, 2, 2, (*Cpu).bne},
 	0xD1: {cmp, addrModeIndirIndexed, 2, 5, (*Cpu).cmp},
 	0xD3: {idcp, addrModeIndirIndexed, 2, 8, (*Cpu).dcp},
 	0xD4: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
 	0xD5: {cmp, addrModeZeroPageX, 2, 4, (*Cpu).cmp},
 	0xD6: {dec, addrModeZeroPageX, 2, 6, (*Cpu).dec},
 	0xD7: {idcp, addrModeZeroPageX, 2, 6, (*Cpu).dcp},
-	// 0xD8: {cld, addrModeImplied, 1, 2, clearDecimal},
+	0xD8: {cld, addrModeImplied, 1, 2, (*Cpu).cld},
 	0xD9: {cmp, addrModeAbsoluteY, 3, 4, (*Cpu).cmp},
 	0xDA: {inop, addrModeImplied, 1, 2, (*Cpu).nop},
 	0xDB: {idcp, addrModeAbsoluteY, 3, 7, (*Cpu).dcp},
@@ -281,10 +286,10 @@ var opcodes = [256]instruction{
 	0xDD: {cmp, addrModeAbsoluteX, 3, 4, (*Cpu).cmp},
 	0xDE: {dec, addrModeAbsoluteX, 3, 7, (*Cpu).dec},
 	0xDF: {idcp, addrModeAbsoluteX, 3, 7, (*Cpu).dcp},
-	// 0xE0: {cpx, addrModeImmediate, 2, 2, compareX},
+	0xE0: {cpx, addrModeImmediate, 2, 2, (*Cpu).cpx},
 	// 0xE1: {sbc, addrModeIndexedIndir, 2, 6, subtractWithCarry},
 	// 0xE3: {iisb, addrModeIndexedIndir, 2, 8, illegalIncrementSubtractWithCarry},
-	// 0xE4: {cpx, addrModeZeroPage, 2, 3, compareX},
+	0xE4: {cpx, addrModeZeroPage, 2, 3, (*Cpu).cpx},
 	// 0xE5: {sbc, addrModeZeroPage, 2, 3, subtractWithCarry},
 	// 0xE6: {inc, addrModeZeroPage, 2, 5, incrementMemory},
 	// 0xE7: {iisb, addrModeZeroPage, 2, 5, illegalIncrementSubtractWithCarry},
@@ -292,7 +297,7 @@ var opcodes = [256]instruction{
 	// 0xE9: {sbc, addrModeImmediate, 2, 2, subtractWithCarry},
 	// 0xEA: {nop, addrModeImplied, 1, 2, noOperation},
 	// 0xEB: {isbc, addrModeImmediate, 2, 2, subtractWithCarry},
-	// 0xEC: {cpx, addrModeAbsolute, 3, 4, compareX},
+	0xEC: {cpx, addrModeAbsolute, 3, 4, (*Cpu).cpx},
 	// 0xED: {sbc, addrModeAbsolute, 3, 4, subtractWithCarry},
 	// 0xEE: {inc, addrModeAbsolute, 3, 6, incrementMemory},
 	// 0xEF: {iisb, addrModeAbsolute, 3, 6, illegalIncrementSubtractWithCarry},
