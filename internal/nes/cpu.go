@@ -431,6 +431,20 @@ func (cpu *Cpu) bvs(addrMode addressMode, pc uint16) {
 	}
 }
 
+// branch if equal
+func (cpu *Cpu) beq(addrMode addressMode, pc uint16) {
+	if !cpu.testFlag(flagZero) {
+		return
+	}
+	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	cpu.pc = address
+
+	cpu.cycleDelay++
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
+}
+
 // clear carry
 func (cpu *Cpu) clc(addrMode addressMode, pc uint16) {
 	cpu.clearFlag(flagCarry)
@@ -648,6 +662,23 @@ func (cpu *Cpu) inc(addrMode addressMode, pc uint16) {
 	}
 
 	if value&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// increment x
+func (cpu *Cpu) inx(addrMode addressMode, pc uint16) {
+	cpu.x++
+
+	if cpu.x == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.x&0x80 > 0 {
 		cpu.setFlag(flagNegative)
 	} else {
 		cpu.clearFlag(flagNegative)
@@ -1052,6 +1083,11 @@ func (cpu *Cpu) sbc(addrMode addressMode, pc uint16) {
 // set carry
 func (cpu *Cpu) sec(addrMode addressMode, pc uint16) {
 	cpu.setFlag(flagCarry)
+}
+
+// set decimal
+func (cpu *Cpu) sed(addrMode addressMode, pc uint16) {
+	cpu.setFlag(flagDecimal)
 }
 
 // set interrupt disable

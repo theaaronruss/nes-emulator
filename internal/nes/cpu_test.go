@@ -506,6 +506,47 @@ func TestBcs(t *testing.T) {
 	}
 }
 
+func TestBeq(t *testing.T) {
+	tests := []struct {
+		name     string
+		offset   uint8
+		zero     bool
+		expected uint16
+	}{
+		{
+			name:   "branch taken forward",
+			offset: 0x23, zero: true, expected: 0x0625,
+		},
+		{
+			name:   "branch taken backward",
+			offset: 0xF8, zero: true, expected: 0x05FA,
+		},
+		{
+			name:   "branch not taken",
+			offset: 0x3A, zero: false, expected: 0x0600,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.offset
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			if test.zero {
+				cpu.setFlag(flagZero)
+			} else {
+				cpu.clearFlag(flagZero)
+			}
+			cpu.beq(addrModeRelative, cpu.pc)
+			if cpu.pc != test.expected {
+				t.Errorf("%s: expected pc to be 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.pc)
+			}
+		})
+	}
+}
+
 func TestBit(t *testing.T) {
 	tests := []struct {
 		name     string

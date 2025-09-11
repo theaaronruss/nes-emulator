@@ -25,6 +25,7 @@ const (
 	asl  = "ASL"
 	bcc  = "BCC"
 	bcs  = "BCS"
+	beq  = "BEQ"
 	bit  = "BIT"
 	bmi  = "BMI"
 	bne  = "BNE"
@@ -44,6 +45,7 @@ const (
 	dey  = "DEY"
 	eor  = "EOR"
 	inc  = "INC"
+	inx  = "INX"
 	iny  = "INY"
 	jmp  = "JMP"
 	jsr  = "JSR"
@@ -51,6 +53,7 @@ const (
 	ldx  = "LDX"
 	ldy  = "LDY"
 	lsr  = "LSR"
+	nop  = "NOP"
 	ora  = "ORA"
 	pha  = "PHA"
 	php  = "PHP"
@@ -62,6 +65,7 @@ const (
 	rts  = "RTS"
 	sbc  = "SBC"
 	sec  = "SEC"
+	sed  = "SED"
 	sei  = "SEI"
 	sta  = "STA"
 	stx  = "STX"
@@ -79,6 +83,7 @@ const (
 	irla = "*RLA"
 	irra = "*RRA"
 	isax = "*SAX"
+	isbc = "*SBC"
 	islo = "*SLO"
 	isre = "*SRE"
 )
@@ -296,22 +301,22 @@ var opcodes = [256]instruction{
 	0xE5: {sbc, addrModeZeroPage, 2, 3, (*Cpu).sbc},
 	0xE6: {inc, addrModeZeroPage, 2, 5, (*Cpu).inc},
 	0xE7: {iisb, addrModeZeroPage, 2, 5, (*Cpu).isb},
-	// 0xE8: {inx, addrModeImplied, 1, 2, incrementX},
+	0xE8: {inx, addrModeImplied, 1, 2, (*Cpu).inx},
 	0xE9: {sbc, addrModeImmediate, 2, 2, (*Cpu).sbc},
-	// 0xEA: {nop, addrModeImplied, 1, 2, noOperation},
-	// 0xEB: {isbc, addrModeImmediate, 2, 2, subtractWithCarry},
+	0xEA: {nop, addrModeImplied, 1, 2, (*Cpu).nop},
+	0xEB: {isbc, addrModeImmediate, 2, 2, (*Cpu).sbc},
 	0xEC: {cpx, addrModeAbsolute, 3, 4, (*Cpu).cpx},
 	0xED: {sbc, addrModeAbsolute, 3, 4, (*Cpu).sbc},
 	0xEE: {inc, addrModeAbsolute, 3, 6, (*Cpu).inc},
 	0xEF: {iisb, addrModeAbsolute, 3, 6, (*Cpu).isb},
-	// 0xF0: {beq, addrModeRelative, 2, 2, branchIfEqual},
+	0xF0: {beq, addrModeRelative, 2, 2, (*Cpu).beq},
 	0xF1: {sbc, addrModeIndirIndexed, 2, 5, (*Cpu).sbc},
 	0xF3: {iisb, addrModeIndirIndexed, 2, 8, (*Cpu).isb},
 	0xF4: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
 	0xF5: {sbc, addrModeZeroPageX, 2, 4, (*Cpu).sbc},
 	0xF6: {inc, addrModeZeroPageX, 2, 6, (*Cpu).inc},
 	0xF7: {iisb, addrModeZeroPageX, 2, 6, (*Cpu).isb},
-	// 0xF8: {sed, addrModeImplied, 1, 2, setDecimal},
+	0xF8: {sed, addrModeImplied, 1, 2, (*Cpu).sed},
 	0xF9: {sbc, addrModeAbsoluteY, 3, 4, (*Cpu).sbc},
 	0xFA: {inop, addrModeImplied, 1, 2, (*Cpu).nop},
 	0xFB: {iisb, addrModeAbsoluteY, 3, 7, (*Cpu).isb},
