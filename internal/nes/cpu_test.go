@@ -1345,6 +1345,87 @@ func TestRts(t *testing.T) {
 	}
 }
 
+func TestSbc(t *testing.T) {
+	tests := []struct {
+		name         string
+		a            uint8
+		memory       uint8
+		initialCarry bool
+		expected     uint8
+		carry        bool
+		overflow     bool
+		negative     bool
+		zero         bool
+	}{
+		{
+			name: "basic subtraction no borrow",
+			a:    0x50, memory: 0x10, initialCarry: true, expected: 0x40,
+			carry: true, overflow: false, negative: false, zero: false,
+		},
+		{
+			name: "basic subtraction with borrow",
+			a:    0x50, memory: 0x10, initialCarry: false, expected: 0x3F,
+			carry: true, overflow: false, negative: false, zero: false,
+		},
+		{
+			name: "borrow required",
+			a:    0x10, memory: 0x20, initialCarry: true, expected: 0xF0,
+			carry: false, overflow: false, negative: true, zero: false,
+		},
+		{
+			name: "zero result",
+			a:    0x20, memory: 0x1F, initialCarry: false, expected: 0x00,
+			carry: true, overflow: false, negative: false, zero: true,
+		},
+		{
+			name: "overflow positive to negative",
+			a:    0x80, memory: 0x01, initialCarry: true, expected: 0x7F,
+			carry: true, overflow: true, negative: false, zero: false,
+		},
+		{
+			name: "overflow negative to positive",
+			a:    0x7F, memory: 0xFF, initialCarry: true, expected: 0x80,
+			carry: false, overflow: true, negative: true, zero: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.memory
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			cpu.a = test.a
+			if test.initialCarry {
+				cpu.setFlag(flagCarry)
+			} else {
+				cpu.clearFlag(flagCarry)
+			}
+			cpu.sbc(addrModeImmediate, cpu.pc)
+			if cpu.a != test.expected {
+				t.Errorf("%s: expected value 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.a)
+			}
+			if cpu.testFlag(flagCarry) != test.carry {
+				t.Errorf("%s: expected carry to be %v, got %v", t.Name(),
+					test.carry, cpu.testFlag(flagCarry))
+			}
+			if cpu.testFlag(flagOverflow) != test.overflow {
+				t.Errorf("%s: expected overflow to be %v, got %v", t.Name(),
+					test.overflow, cpu.testFlag(flagOverflow))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("%s: expected negative to be %v, got %v", t.Name(),
+					test.negative, cpu.testFlag(flagNegative))
+			}
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("%s: expected zero to be %v, got %v", t.Name(),
+					test.zero, cpu.testFlag(flagZero))
+			}
+		})
+	}
+}
+
 func TestSlo(t *testing.T) {
 	bus := newFakeSysBus()
 	bus.data[0x0601] = 0x80

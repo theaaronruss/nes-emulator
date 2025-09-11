@@ -549,8 +549,8 @@ func (cpu *Cpu) cpy(addrMode addressMode, pc uint16) {
 
 // decrement memory and compare a
 func (cpu *Cpu) dcp(addrMode addressMode, pc uint16) {
-	cpu.dec(addrMode, cpu.pc)
-	cpu.cmp(addrMode, cpu.pc)
+	cpu.dec(addrMode, pc)
+	cpu.cmp(addrMode, pc)
 }
 
 // decrement x
@@ -634,6 +634,26 @@ func (cpu *Cpu) eor(addrMode addressMode, pc uint16) {
 	}
 }
 
+// increment memory
+func (cpu *Cpu) inc(addrMode addressMode, pc uint16) {
+	address, _ := cpu.mustGetAddress(addrMode)
+	value := cpu.bus.Read(address)
+	value++
+	cpu.bus.Write(address, value)
+
+	if value == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
 // increment y
 func (cpu *Cpu) iny(addrMode addressMode, pc uint16) {
 	cpu.y++
@@ -649,6 +669,12 @@ func (cpu *Cpu) iny(addrMode addressMode, pc uint16) {
 	} else {
 		cpu.clearFlag(flagNegative)
 	}
+}
+
+// increment memory and subtract with carry
+func (cpu *Cpu) isb(addrMode addressMode, pc uint16) {
+	cpu.inc(addrMode, pc)
+	cpu.sbc(addrMode, pc)
 }
 
 // jump
@@ -670,8 +696,8 @@ func (cpu *Cpu) jsr(addrMode addressMode, pc uint16) {
 
 // load a and load x
 func (cpu *Cpu) lax(addrMode addressMode, pc uint16) {
-	cpu.lda(addrMode, cpu.pc)
-	cpu.ldx(addrMode, cpu.pc)
+	cpu.lda(addrMode, pc)
+	cpu.ldx(addrMode, pc)
 }
 
 // load a
@@ -859,8 +885,8 @@ func (cpu *Cpu) plp(addrMode addressMode, pc uint16) {
 
 // rotate left and bitwise and
 func (cpu *Cpu) rla(addrMode addressMode, pc uint16) {
-	cpu.rol(addrMode, cpu.pc)
-	cpu.and(addrMode, cpu.pc)
+	cpu.rol(addrMode, pc)
+	cpu.and(addrMode, pc)
 }
 
 // rotate left
@@ -951,7 +977,7 @@ func (cpu *Cpu) ror(addrMode addressMode, pc uint16) {
 // rotate right and add with carry
 func (cpu *Cpu) rra(addrMode addressMode, pc uint16) {
 	cpu.ror(addrMode, pc)
-	cpu.adc(addrMode, cpu.pc)
+	cpu.adc(addrMode, pc)
 }
 
 // return from interrupt
@@ -978,6 +1004,51 @@ func (cpu *Cpu) sax(addrMode addressMode, pc uint16) {
 	cpu.bus.Write(address, value)
 }
 
+// subtract with carry
+func (cpu *Cpu) sbc(addrMode addressMode, pc uint16) {
+	var value uint8
+	if addrMode == addrModeImmediate {
+		value = cpu.bus.Read(pc + 1)
+	} else {
+		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+		if pageCrossed {
+			cpu.cycleDelay++
+		}
+	}
+
+	result := int16(cpu.a) - int16(value)
+	if !cpu.testFlag(flagCarry) {
+		result--
+	}
+
+	if result >= 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	if result == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if (uint8(result)^cpu.a)&(uint8(result)^^value)&0x80 > 0 {
+		cpu.setFlag(flagOverflow)
+	} else {
+		cpu.clearFlag(flagOverflow)
+	}
+
+	if result&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+
+	cpu.a = uint8(result)
+}
+
 // set carry
 func (cpu *Cpu) sec(addrMode addressMode, pc uint16) {
 	cpu.setFlag(flagCarry)
@@ -990,14 +1061,14 @@ func (cpu *Cpu) sei(addrMode addressMode, pc uint16) {
 
 // arithmetic shift left and bitwise or
 func (cpu *Cpu) slo(addrMode addressMode, pc uint16) {
-	cpu.asl(addrMode, cpu.pc)
-	cpu.ora(addrMode, cpu.pc)
+	cpu.asl(addrMode, pc)
+	cpu.ora(addrMode, pc)
 }
 
 // logical shift right and bitwise exclusive or
 func (cpu *Cpu) sre(addrMode addressMode, pc uint16) {
-	cpu.lsr(addrMode, cpu.pc)
-	cpu.eor(addrMode, cpu.pc)
+	cpu.lsr(addrMode, pc)
+	cpu.eor(addrMode, pc)
 }
 
 // store a

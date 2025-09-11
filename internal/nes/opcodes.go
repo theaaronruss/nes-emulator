@@ -43,6 +43,7 @@ const (
 	dex  = "DEX"
 	dey  = "DEY"
 	eor  = "EOR"
+	inc  = "INC"
 	iny  = "INY"
 	jmp  = "JMP"
 	jsr  = "JSR"
@@ -59,6 +60,7 @@ const (
 	ror  = "ROR"
 	rti  = "RTI"
 	rts  = "RTS"
+	sbc  = "SBC"
 	sec  = "SEC"
 	sei  = "SEI"
 	sta  = "STA"
@@ -71,6 +73,7 @@ const (
 	txs  = "TXS"
 	tya  = "TYA"
 	idcp = "*DCP"
+	iisb = "*ISB"
 	ilax = "*LAX"
 	inop = "*NOP"
 	irla = "*RLA"
@@ -287,33 +290,33 @@ var opcodes = [256]instruction{
 	0xDE: {dec, addrModeAbsoluteX, 3, 7, (*Cpu).dec},
 	0xDF: {idcp, addrModeAbsoluteX, 3, 7, (*Cpu).dcp},
 	0xE0: {cpx, addrModeImmediate, 2, 2, (*Cpu).cpx},
-	// 0xE1: {sbc, addrModeIndexedIndir, 2, 6, subtractWithCarry},
-	// 0xE3: {iisb, addrModeIndexedIndir, 2, 8, illegalIncrementSubtractWithCarry},
+	0xE1: {sbc, addrModeIndexedIndir, 2, 6, (*Cpu).sbc},
+	0xE3: {iisb, addrModeIndexedIndir, 2, 8, (*Cpu).isb},
 	0xE4: {cpx, addrModeZeroPage, 2, 3, (*Cpu).cpx},
-	// 0xE5: {sbc, addrModeZeroPage, 2, 3, subtractWithCarry},
-	// 0xE6: {inc, addrModeZeroPage, 2, 5, incrementMemory},
-	// 0xE7: {iisb, addrModeZeroPage, 2, 5, illegalIncrementSubtractWithCarry},
+	0xE5: {sbc, addrModeZeroPage, 2, 3, (*Cpu).sbc},
+	0xE6: {inc, addrModeZeroPage, 2, 5, (*Cpu).inc},
+	0xE7: {iisb, addrModeZeroPage, 2, 5, (*Cpu).isb},
 	// 0xE8: {inx, addrModeImplied, 1, 2, incrementX},
-	// 0xE9: {sbc, addrModeImmediate, 2, 2, subtractWithCarry},
+	0xE9: {sbc, addrModeImmediate, 2, 2, (*Cpu).sbc},
 	// 0xEA: {nop, addrModeImplied, 1, 2, noOperation},
 	// 0xEB: {isbc, addrModeImmediate, 2, 2, subtractWithCarry},
 	0xEC: {cpx, addrModeAbsolute, 3, 4, (*Cpu).cpx},
-	// 0xED: {sbc, addrModeAbsolute, 3, 4, subtractWithCarry},
-	// 0xEE: {inc, addrModeAbsolute, 3, 6, incrementMemory},
-	// 0xEF: {iisb, addrModeAbsolute, 3, 6, illegalIncrementSubtractWithCarry},
+	0xED: {sbc, addrModeAbsolute, 3, 4, (*Cpu).sbc},
+	0xEE: {inc, addrModeAbsolute, 3, 6, (*Cpu).inc},
+	0xEF: {iisb, addrModeAbsolute, 3, 6, (*Cpu).isb},
 	// 0xF0: {beq, addrModeRelative, 2, 2, branchIfEqual},
-	// 0xF1: {sbc, addrModeIndirIndexed, 2, 5, subtractWithCarry},
-	// 0xF3: {iisb, addrModeIndirIndexed, 2, 8, illegalIncrementSubtractWithCarry},
+	0xF1: {sbc, addrModeIndirIndexed, 2, 5, (*Cpu).sbc},
+	0xF3: {iisb, addrModeIndirIndexed, 2, 8, (*Cpu).isb},
 	0xF4: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
-	// 0xF5: {sbc, addrModeZeroPageX, 2, 4, subtractWithCarry},
-	// 0xF6: {inc, addrModeZeroPageX, 2, 6, incrementMemory},
-	// 0xF7: {iisb, addrModeZeroPageX, 2, 6, illegalIncrementSubtractWithCarry},
+	0xF5: {sbc, addrModeZeroPageX, 2, 4, (*Cpu).sbc},
+	0xF6: {inc, addrModeZeroPageX, 2, 6, (*Cpu).inc},
+	0xF7: {iisb, addrModeZeroPageX, 2, 6, (*Cpu).isb},
 	// 0xF8: {sed, addrModeImplied, 1, 2, setDecimal},
-	// 0xF9: {sbc, addrModeAbsoluteY, 3, 4, subtractWithCarry},
+	0xF9: {sbc, addrModeAbsoluteY, 3, 4, (*Cpu).sbc},
 	0xFA: {inop, addrModeImplied, 1, 2, (*Cpu).nop},
-	// 0xFB: {iisb, addrModeAbsoluteY, 3, 7, illegalIncrementSubtractWithCarry},
+	0xFB: {iisb, addrModeAbsoluteY, 3, 7, (*Cpu).isb},
 	0xFC: {inop, addrModeAbsoluteX, 3, 4, (*Cpu).nop},
-	// 0xFD: {sbc, addrModeAbsoluteX, 3, 4, subtractWithCarry},
-	// 0xFE: {inc, addrModeAbsoluteX, 3, 7, incrementMemory},
-	// 0xFF: {iisb, addrModeAbsoluteX, 3, 7, illegalIncrementSubtractWithCarry},
+	0xFD: {sbc, addrModeAbsoluteX, 3, 4, (*Cpu).sbc},
+	0xFE: {inc, addrModeAbsoluteX, 3, 7, (*Cpu).inc},
+	0xFF: {iisb, addrModeAbsoluteX, 3, 7, (*Cpu).isb},
 }
