@@ -22,10 +22,9 @@ func (bus *fakeSysBus) Write(address uint16, data uint8) {
 
 func TestGetZeroPageAddress(t *testing.T) {
 	bus := newFakeSysBus()
-	bus.data[0xFFFC] = 0x00
-	bus.data[0xFFFD] = 0x06
 	bus.data[0x0601] = 0x69
 	cpu := NewCpu(bus)
+	cpu.pc = 0x0600
 	actual := cpu.getZeroPageAddress()
 	if actual != 0x69 {
 		t.Errorf("expected address 0x69, got 0x%X", actual)
@@ -52,10 +51,9 @@ func TestGetZeroPageOffsetAddress(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			bus := newFakeSysBus()
-			bus.data[0xFFFC] = 0x00
-			bus.data[0xFFFD] = 0x06
 			bus.data[0x0601] = test.input
 			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
 			actual := cpu.getZeroPageOffsetAddress(test.offset)
 			if actual != test.expected {
 				t.Errorf("%s: expected address 0x%X, got 0x%X", t.Name(),
@@ -67,11 +65,10 @@ func TestGetZeroPageOffsetAddress(t *testing.T) {
 
 func TestGetAbsoluteAddress(t *testing.T) {
 	bus := newFakeSysBus()
-	bus.data[0xFFFC] = 0x00
-	bus.data[0xFFFD] = 0x06
 	bus.data[0x0601] = 0x25
 	bus.data[0x0602] = 0xC3
 	cpu := NewCpu(bus)
+	cpu.pc = 0x0600
 	actual := cpu.getAbsoluteAddress()
 	if actual != 0xC325 {
 		t.Errorf("expected address 0xC325, got 0x%X", actual)
@@ -104,11 +101,10 @@ func TestGetAbsoluteOffsetAddress(t *testing.T) {
 
 	for _, test := range tests {
 		bus := newFakeSysBus()
-		bus.data[0xFFFC] = 0x00
-		bus.data[0xFFFD] = 0x06
 		bus.data[0x0601] = uint8(test.input & 0x00FF)
 		bus.data[0x0602] = uint8(test.input & 0xFF00 >> 8)
 		cpu := NewCpu(bus)
+		cpu.pc = 0x0600
 		actual, actualPageCrossed := cpu.getAbsoluteOffsetAddress(test.offset)
 		if actual != test.expected {
 			t.Errorf("%s: expected address 0x%X, got 0x%X", t.Name(),
@@ -150,10 +146,9 @@ func TestGetRelativeAddress(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			bus := newFakeSysBus()
-			bus.data[0xFFFC] = uint8(test.pc & 0x00FF)
-			bus.data[0xFFFD] = uint8(test.pc & 0xFF00 >> 8)
 			bus.data[test.pc+1] = test.input
 			cpu := NewCpu(bus)
+			cpu.pc = test.pc
 			actual, actualPageCrossed := cpu.getRelativeAddress()
 			if actual != test.expected {
 				t.Errorf("%s: expected address 0x%X, got 0x%X", t.Name(),
@@ -185,13 +180,12 @@ func TestGetIndirectAddress(t *testing.T) {
 
 	t.Run("boundary jump", func(t *testing.T) {
 		bus := newFakeSysBus()
-		bus.data[0xFFFC] = 0x00
-		bus.data[0xFFFD] = 0x06
 		bus.data[0x0601] = 0xFF
 		bus.data[0x0602] = 0x30
 		bus.data[0x30FF] = 0x34
 		bus.data[0x3000] = 0x12
 		cpu := NewCpu(bus)
+		cpu.pc = 0x0600
 		actual := cpu.getIndirectAddress()
 		if actual != 0x1234 {
 			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
@@ -202,12 +196,11 @@ func TestGetIndirectAddress(t *testing.T) {
 func TestGetIndexedIndirectAddress(t *testing.T) {
 	t.Run("zero page", func(t *testing.T) {
 		bus := newFakeSysBus()
-		bus.data[0xFFFC] = 0x00
-		bus.data[0xFFFD] = 0x06
 		bus.data[0x0601] = 0x80
 		bus.data[0x0088] = 0x34
 		bus.data[0x0089] = 0x12
 		cpu := NewCpu(bus)
+		cpu.pc = 0x0600
 		actual := cpu.getIndexedIndirectAddress(0x08)
 		if actual != 0x1234 {
 			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
@@ -216,12 +209,11 @@ func TestGetIndexedIndirectAddress(t *testing.T) {
 
 	t.Run("page cross", func(t *testing.T) {
 		bus := newFakeSysBus()
-		bus.data[0xFFFC] = 0x00
-		bus.data[0xFFFD] = 0x06
 		bus.data[0x0601] = 0xF0
 		bus.data[0x00FF] = 0x34
 		bus.data[0x0000] = 0x12
 		cpu := NewCpu(bus)
+		cpu.pc = 0x0600
 		actual := cpu.getIndexedIndirectAddress(0x0F)
 		if actual != 0x1234 {
 			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
@@ -232,12 +224,11 @@ func TestGetIndexedIndirectAddress(t *testing.T) {
 func TestGetIndirectIndexedAddress(t *testing.T) {
 	t.Run("same page", func(t *testing.T) {
 		bus := newFakeSysBus()
-		bus.data[0xFFFC] = 0x00
-		bus.data[0xFFFD] = 0x06
 		bus.data[0x0601] = 0x4B
 		bus.data[0x4B] = 0x26
 		bus.data[0x4C] = 0x12
 		cpu := NewCpu(bus)
+		cpu.pc = 0x0600
 		actual, pageCrossed := cpu.getIndirectIndexedAddress(0x0E)
 		if actual != 0x1234 {
 			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
@@ -249,12 +240,11 @@ func TestGetIndirectIndexedAddress(t *testing.T) {
 
 	t.Run("page cross", func(t *testing.T) {
 		bus := newFakeSysBus()
-		bus.data[0xFFFC] = 0x00
-		bus.data[0xFFFD] = 0x06
 		bus.data[0x0601] = 0x4B
 		bus.data[0x4B] = 0xF0
 		bus.data[0x4C] = 0xA2
 		cpu := NewCpu(bus)
+		cpu.pc = 0x0600
 		actual, pageCrossed := cpu.getIndirectIndexedAddress(0x23)
 		if actual != 0xA313 {
 			t.Errorf("%s: expected address 0xA313, got 0x%X", t.Name(), actual)
@@ -287,10 +277,9 @@ func TestAnd(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			bus := newFakeSysBus()
-			bus.data[0xFFFC] = 0x00
-			bus.data[0xFFFD] = 0x06
 			bus.data[0x0601] = test.memory
 			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
 			cpu.a = test.a
 			cpu.and(addrModeImmediate, cpu.pc)
 			if cpu.a != test.expected {
@@ -380,12 +369,11 @@ func TestBit(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			bus := newFakeSysBus()
-			bus.data[0xFFFC] = 0x00
-			bus.data[0xFFFD] = 0x06
 			bus.data[0x0601] = 0x34
 			bus.data[0x0602] = 0x12
 			bus.data[0x1234] = test.memory
 			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
 			cpu.a = test.a
 			cpu.bit(addrModeAbsolute, cpu.pc)
 			if cpu.testFlag(flagZero) != test.zero {
@@ -469,10 +457,9 @@ func TestBpl(t *testing.T) {
 	for _, test := range tests {
 		t.Run(t.Name(), func(t *testing.T) {
 			bus := newFakeSysBus()
-			bus.data[0xFFFC] = 0x00
-			bus.data[0xFFFD] = 0x06
 			bus.data[0x0601] = test.offset
 			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
 			if test.negative {
 				cpu.setFlag(flagNegative)
 			} else {
@@ -489,11 +476,10 @@ func TestBpl(t *testing.T) {
 
 func TestBrk(t *testing.T) {
 	bus := newFakeSysBus()
-	bus.data[0xFFFC] = 0x00
-	bus.data[0xFFFD] = 0x06
 	bus.data[0xFFFE] = 0x34
 	bus.data[0xFFFF] = 0x12
 	cpu := NewCpu(bus)
+	cpu.pc = 0x0600
 	oldPc := cpu.pc + 2
 	cpu.brk(addrModeImplied, cpu.pc)
 	if cpu.pc != 0x1234 {
@@ -507,13 +493,55 @@ func TestBrk(t *testing.T) {
 	}
 }
 
+func TestEor(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        uint8
+		memory   uint8
+		expected uint8
+		zero     bool
+		negative bool
+	}{
+		{
+			name: "all bits set",
+			a:    0xAA, memory: 0x55, expected: 0xFF, zero: false, negative: true,
+		},
+		{
+			name: "no bits set",
+			a:    0xFF, memory: 0xFF, expected: 0x00, zero: true, negative: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.memory
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			cpu.a = test.a
+			cpu.eor(addrModeImmediate, cpu.pc)
+			if cpu.a != test.expected {
+				t.Errorf("%s: expected accumulator to be 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.a)
+			}
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("%s: expected zero flag to be %t, got %t", t.Name(),
+					test.zero, cpu.testFlag(flagZero))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("%s: expected negative flag to be %t, got %t", t.Name(),
+					test.negative, cpu.testFlag(flagNegative))
+			}
+		})
+	}
+}
+
 func TestJsr(t *testing.T) {
 	bus := newFakeSysBus()
-	bus.data[0xFFFC] = 0x00
-	bus.data[0xFFFD] = 0x06
 	bus.data[0x0601] = 0x34
 	bus.data[0x0602] = 0x12
 	cpu := NewCpu(bus)
+	cpu.pc = 0x0600
 	cpu.jsr(addrModeAbsolute, cpu.pc)
 	if cpu.pc != 0x1234 {
 		t.Errorf("expected pc to be 0x1234, got 0x%X", cpu.pc)
@@ -548,10 +576,9 @@ func TestOra(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			bus := newFakeSysBus()
-			bus.data[0xFFFC] = 0x00
-			bus.data[0xFFFD] = 0x06
 			bus.data[0x0601] = test.memory
 			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
 			cpu.a = test.a
 			cpu.ora(addrModeImmediate, cpu.pc)
 			if cpu.a != test.expected {
@@ -599,12 +626,11 @@ func TestPlp(t *testing.T) {
 
 func TestRla(t *testing.T) {
 	bus := newFakeSysBus()
-	bus.data[0xFFFC] = 0x00
-	bus.data[0xFFFD] = 0x06
 	bus.data[0x0601] = 0x34
 	bus.data[0x0602] = 0x12
 	bus.data[0x1234] = 0xC1
 	cpu := NewCpu(bus)
+	cpu.pc = 0x0600
 	cpu.a = 0xAA
 	cpu.clearFlag(flagCarry)
 	cpu.rla(addrModeAbsolute, cpu.pc)
@@ -650,9 +676,8 @@ func TestRol(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			bus := newFakeSysBus()
-			bus.data[0xFFFC] = 0x00
-			bus.data[0xFFFD] = 0x06
 			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
 			cpu.a = test.a
 			if test.initialCarry {
 				cpu.setFlag(flagCarry)
@@ -695,11 +720,10 @@ func TestRti(t *testing.T) {
 
 func TestSlo(t *testing.T) {
 	bus := newFakeSysBus()
-	bus.data[0xFFFC] = 0x00
-	bus.data[0xFFFD] = 0x06
 	bus.data[0x0601] = 0x80
 	bus.data[0x0080] = 0x81
 	cpu := NewCpu(bus)
+	cpu.pc = 0x0600
 	cpu.a = 0x55
 	cpu.clearFlag(flagCarry)
 	cpu.slo(addrModeZeroPage, cpu.pc)
