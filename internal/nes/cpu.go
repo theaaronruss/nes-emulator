@@ -375,6 +375,20 @@ func (cpu *Cpu) bvc(addrMode addressMode, pc uint16) {
 	}
 }
 
+// branch if overflow set
+func (cpu *Cpu) bvs(addrMode addressMode, pc uint16) {
+	if !cpu.testFlag(flagOverflow) {
+		return
+	}
+	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	cpu.pc = address
+
+	cpu.cycleDelay++
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
+}
+
 // clear carry
 func (cpu *Cpu) clc(addrMode addressMode, pc uint16) {
 	cpu.clearFlag(flagCarry)
@@ -505,16 +519,33 @@ func (cpu *Cpu) php(addrMode addressMode, pc uint16) {
 	cpu.stackPush(cpu.status | flagUnused | flagBreak)
 }
 
-// rotate left and bitwise and
-func (cpu *Cpu) rla(addrMode addressMode, pc uint16) {
-	cpu.rol(addrMode, cpu.pc)
-	cpu.and(addrMode, cpu.pc)
+// pull a
+func (cpu *Cpu) pla(addrMode addressMode, pc uint16) {
+	cpu.a = cpu.stackPop()
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
 
 // pull processor status
 func (cpu *Cpu) plp(addrMode addressMode, pc uint16) {
 	flags := cpu.stackPop()
 	cpu.status = flags & 0xCF
+}
+
+// rotate left and bitwise and
+func (cpu *Cpu) rla(addrMode addressMode, pc uint16) {
+	cpu.rol(addrMode, cpu.pc)
+	cpu.and(addrMode, cpu.pc)
 }
 
 // rotate left

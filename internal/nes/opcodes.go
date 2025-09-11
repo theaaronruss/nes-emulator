@@ -28,6 +28,7 @@ const (
 	bpl  = "BPL"
 	brk  = "BRK"
 	bvc  = "BVC"
+	bvs  = "BVS"
 	clc  = "CLC"
 	cli  = "CLI"
 	eor  = "EOR"
@@ -37,6 +38,7 @@ const (
 	ora  = "ORA"
 	pha  = "PHA"
 	php  = "PHP"
+	pla  = "PLA"
 	plp  = "PLP"
 	rol  = "ROL"
 	ror  = "ROR"
@@ -153,14 +155,14 @@ var opcodes = [256]instruction{
 	0x65: {adc, addrModeZeroPage, 2, 3, (*Cpu).adc},
 	0x66: {ror, addrModeZeroPage, 2, 5, (*Cpu).ror},
 	0x67: {irra, addrModeZeroPage, 2, 5, (*Cpu).rra},
-	// 0x68: {pla, addrModeImplied, 1, 4, pullA},
+	0x68: {pla, addrModeImplied, 1, 4, (*Cpu).pla},
 	0x69: {adc, addrModeImmediate, 2, 2, (*Cpu).adc},
 	0x6A: {ror, addrModeAccumulator, 1, 2, (*Cpu).ror},
 	0x6C: {jmp, addrModeIndirect, 3, 5, (*Cpu).jmp},
 	0x6D: {adc, addrModeAbsolute, 3, 4, (*Cpu).adc},
 	0x6E: {ror, addrModeAbsolute, 3, 6, (*Cpu).ror},
 	0x6F: {irra, addrModeAbsolute, 3, 6, (*Cpu).rra},
-	// 0x70: {bvs, addrModeRelative, 2, 2, branchIfOverflowSet},
+	0x70: {bvs, addrModeRelative, 2, 2, (*Cpu).bvs},
 	0x71: {adc, addrModeIndirIndexed, 2, 5, (*Cpu).adc},
 	0x73: {irra, addrModeIndirIndexed, 2, 8, (*Cpu).rra},
 	0x74: {inop, addrModeZeroPageX, 2, 4, (*Cpu).nop},
