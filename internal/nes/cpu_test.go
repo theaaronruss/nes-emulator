@@ -292,7 +292,7 @@ func TestAnd(t *testing.T) {
 			bus.data[0x0601] = test.memory
 			cpu := NewCpu(bus)
 			cpu.a = test.a
-			cpu.and(&opcodes[0x29], cpu.pc)
+			cpu.and(addrModeImmediate, cpu.pc)
 			if cpu.a != test.expected {
 				t.Errorf("%s: expected accumulator to be 0x%X, got 0x%X",
 					t.Name(), test.expected, cpu.a)
@@ -333,7 +333,7 @@ func TestAsl(t *testing.T) {
 			bus := newFakeSysBus()
 			cpu := NewCpu(bus)
 			cpu.a = test.a
-			cpu.asl(&opcodes[0x0A], cpu.pc)
+			cpu.asl(addrModeAccumulator, cpu.pc)
 			if cpu.a != test.expected {
 				t.Errorf("expected accumulator to be 0x%X, got 0x%X", test.expected,
 					cpu.a)
@@ -387,7 +387,7 @@ func TestBit(t *testing.T) {
 			bus.data[0x1234] = test.memory
 			cpu := NewCpu(bus)
 			cpu.a = test.a
-			cpu.bit(&opcodes[0x2C], cpu.pc)
+			cpu.bit(addrModeAbsolute, cpu.pc)
 			if cpu.testFlag(flagZero) != test.zero {
 				t.Errorf("%s: expected zero flag to be %t, got %t", t.Name(),
 					test.zero, cpu.testFlag(flagZero))
@@ -437,7 +437,7 @@ func TestBsl(t *testing.T) {
 			} else {
 				cpu.clearFlag(flagNegative)
 			}
-			cpu.bpl(&opcodes[0x10], cpu.pc)
+			cpu.bpl(addrModeRelative, cpu.pc)
 			if cpu.pc != test.expected {
 				t.Errorf("%s: expected pc to be 0x%X, got 0x%X", t.Name(),
 					test.expected, cpu.pc)
@@ -454,7 +454,7 @@ func TestBrk(t *testing.T) {
 	bus.data[0xFFFF] = 0x12
 	cpu := NewCpu(bus)
 	oldPc := cpu.pc + 2
-	cpu.brk(&opcodes[0x00], cpu.pc)
+	cpu.brk(addrModeImplied, cpu.pc)
 	if cpu.pc != 0x1234 {
 		t.Errorf("incorrect irq vector")
 	}
@@ -473,7 +473,7 @@ func TestJsr(t *testing.T) {
 	bus.data[0x0601] = 0x34
 	bus.data[0x0602] = 0x12
 	cpu := NewCpu(bus)
-	cpu.jsr(&opcodes[0x20], cpu.pc)
+	cpu.jsr(addrModeAbsolute, cpu.pc)
 	if cpu.pc != 0x1234 {
 		t.Errorf("expected pc to be 0x1234, got 0x%X", cpu.pc)
 	}
@@ -512,7 +512,7 @@ func TestOra(t *testing.T) {
 			bus.data[0x0601] = test.memory
 			cpu := NewCpu(bus)
 			cpu.a = test.a
-			cpu.ora(&opcodes[0x09], cpu.pc)
+			cpu.ora(addrModeImmediate, cpu.pc)
 			if cpu.a != test.expected {
 				t.Errorf("%s: expected accumulator to be 0x%X, got 0x%X", t.Name(),
 					test.expected, cpu.a)
@@ -538,7 +538,7 @@ func TestPhp(t *testing.T) {
 	cpu.setFlag(flagIntDisable)
 	cpu.setFlag(flagZero)
 	cpu.setFlag(flagCarry)
-	cpu.php(&opcodes[0x08], cpu.pc)
+	cpu.php(addrModeImplied, cpu.pc)
 	status := cpu.stackPop()
 	if status != 0xFF {
 		t.Errorf("incorrect flags pushed to stack")
@@ -555,7 +555,7 @@ func TestRla(t *testing.T) {
 	cpu := NewCpu(bus)
 	cpu.a = 0xAA
 	cpu.clearFlag(flagCarry)
-	cpu.rla(&opcodes[0x2F], cpu.pc)
+	cpu.rla(addrModeAbsolute, cpu.pc)
 	if cpu.a != 0x82 {
 		t.Errorf("expected accumulator to be 0x82, got 0x%X", cpu.a)
 	}
@@ -607,7 +607,7 @@ func TestRol(t *testing.T) {
 			} else {
 				cpu.clearFlag(flagCarry)
 			}
-			cpu.rol(&opcodes[0x2A], cpu.pc)
+			cpu.rol(addrModeAccumulator, cpu.pc)
 			if cpu.a != test.expected {
 				t.Errorf("%s: expected value 0x%X, got 0x%X", t.Name(),
 					test.expected, cpu.a)
@@ -637,7 +637,7 @@ func TestSlo(t *testing.T) {
 	cpu := NewCpu(bus)
 	cpu.a = 0x55
 	cpu.clearFlag(flagCarry)
-	cpu.slo(&opcodes[0x07], cpu.pc)
+	cpu.slo(addrModeZeroPage, cpu.pc)
 	if cpu.a != 0x57 {
 		t.Errorf("expected accumulator to be 0x57, got 0x%X", cpu.a)
 	}

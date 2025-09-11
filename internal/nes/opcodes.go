@@ -40,7 +40,7 @@ type instruction struct {
 	addrMode addressMode
 	bytes    int
 	cycles   int
-	fn       func(*Cpu, *instruction, uint16)
+	fn       func(*Cpu, addressMode, uint16)
 }
 
 var opcodes = [256]instruction{
