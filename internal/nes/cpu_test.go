@@ -554,6 +554,60 @@ func TestJsr(t *testing.T) {
 	}
 }
 
+func TestLsr(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    uint8
+		expected uint8
+		carry    bool
+		zero     bool
+		negative bool
+	}{
+		{
+			name:  "basic shift",
+			input: 0x4A, expected: 0x25,
+			carry: false, zero: false, negative: false,
+		},
+		{
+			name:  "carry set",
+			input: 0x01, expected: 0x00,
+			carry: true, zero: true, negative: false,
+		},
+		{
+			name:  "zero result",
+			input: 0x00, expected: 0x00,
+			carry: false, zero: true, negative: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bus := newFakeSysBus()
+			bus.data[0x0601] = test.input
+			cpu := NewCpu(bus)
+			cpu.pc = 0x0600
+			cpu.a = test.input
+			cpu.lsr(addrModeAccumulator, cpu.pc)
+			if cpu.a != test.expected {
+				t.Errorf("%s: expected accumulator to be 0x%X, got 0x%X", t.Name(),
+					test.expected, cpu.a)
+			}
+			if cpu.testFlag(flagCarry) != test.carry {
+				t.Errorf("%s: expected carry to be %v, got %v", t.Name(),
+					test.carry, cpu.testFlag(flagCarry))
+			}
+			if cpu.testFlag(flagZero) != test.zero {
+				t.Errorf("%s: expected zero to be %v, got %v", t.Name(),
+					test.zero, cpu.testFlag(flagZero))
+			}
+			if cpu.testFlag(flagNegative) != test.negative {
+				t.Errorf("%s: expected negative to be %v, got %v", t.Name(),
+					test.negative, cpu.testFlag(flagNegative))
+			}
+		})
+	}
+}
+
 func TestOra(t *testing.T) {
 	tests := []struct {
 		name     string

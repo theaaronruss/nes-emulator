@@ -359,6 +359,39 @@ func (cpu *Cpu) jsr(addrMode addressMode, pc uint16) {
 	cpu.pc = address
 }
 
+// logical shift right
+func (cpu *Cpu) lsr(addrMode addressMode, pc uint16) {
+	var value uint8
+	var address uint16
+	if addrMode == addrModeAccumulator {
+		value = cpu.a
+	} else {
+		address, _ = cpu.mustGetAddress(addrMode)
+		value = cpu.bus.Read(address)
+	}
+
+	if value&0x01 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value >>= 1
+
+	if value == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	cpu.clearFlag(flagNegative)
+	if addrMode == addrModeAccumulator {
+		cpu.a = value
+	} else {
+		cpu.bus.Write(address, value)
+	}
+}
+
 // no operation
 func (cpu *Cpu) nop(addrMode addressMode, pc uint16) {
 	// do nothing
