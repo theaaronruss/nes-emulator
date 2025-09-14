@@ -29,8 +29,9 @@ type Cpu struct {
 	pc     uint16
 	status uint8
 
-	bus        BusReadWriter
-	cycleDelay int
+	bus         BusReadWriter
+	cycleDelay  int
+	totalCycles int
 }
 
 func NewCpu(bus BusReadWriter) *Cpu {
@@ -41,7 +42,7 @@ func NewCpu(bus BusReadWriter) *Cpu {
 		sp:     initialStackPointer,
 		pc:     uint16(pcHigh)<<8 | uint16(pcLow),
 		status: initialStatus, bus: bus,
-		cycleDelay: 0,
+		cycleDelay: 7, totalCycles: 0,
 	}
 	return cpu
 }
@@ -56,7 +57,12 @@ func (cpu *Cpu) Clock() {
 		cpu.cycleDelay += instruction.cycles
 	}
 	cpu.cycleDelay--
+	cpu.totalCycles++
 }
+
+// TODO: implement irq
+
+// TODO: implement nmi
 
 func (cpu *Cpu) setFlag(flag uint8) {
 	cpu.status |= flag
@@ -82,51 +88,55 @@ func (cpu *Cpu) stackPop() uint8 {
 	return cpu.bus.Read(address)
 }
 
-func (cpu *Cpu) mustGetAddress(addrMode addressMode) (uint16, bool) {
+func (cpu *Cpu) mustGetAddress(addrMode addressMode, pc uint16) (uint16, bool) {
 	switch addrMode {
+	case addrModeImplied:
+		return pc, false
+	case addrModeImmediate:
+		return pc, false
 	case addrModeZeroPage:
-		return cpu.getZeroPageAddress(), false
+		return cpu.getZeroPageAddress(pc), false
 	case addrModeZeroPageX:
-		return cpu.getZeroPageOffsetAddress(cpu.x), false
+		return cpu.getZeroPageOffsetAddress(pc, cpu.x), false
 	case addrModeZeroPageY:
-		return cpu.getZeroPageOffsetAddress(cpu.y), false
+		return cpu.getZeroPageOffsetAddress(pc, cpu.y), false
 	case addrModeAbsolute:
-		return cpu.getAbsoluteAddress(), false
+		return cpu.getAbsoluteAddress(pc), false
 	case addrModeAbsoluteX:
-		return cpu.getAbsoluteOffsetAddress(cpu.x)
+		return cpu.getAbsoluteOffsetAddress(pc, cpu.x)
 	case addrModeAbsoluteY:
-		return cpu.getAbsoluteOffsetAddress(cpu.y)
+		return cpu.getAbsoluteOffsetAddress(pc, cpu.y)
 	case addrModeRelative:
-		return cpu.getRelativeAddress()
+		return cpu.getRelativeAddress(pc)
 	case addrModeIndirect:
-		return cpu.getIndirectAddress(), false
+		return cpu.getIndirectAddress(pc), false
 	case addrModeIndexedIndir:
-		return cpu.getIndexedIndirectAddress(cpu.x), false
+		return cpu.getIndexedIndirectAddress(pc, cpu.x), false
 	case addrModeIndirIndexed:
-		return cpu.getIndirectIndexedAddress(cpu.y)
+		return cpu.getIndirectIndexedAddress(pc, cpu.y)
 	}
 	panic("invalid address mode")
 }
 
-func (cpu *Cpu) getZeroPageAddress() uint16 {
-	address := cpu.bus.Read(cpu.pc + 1)
+func (cpu *Cpu) getZeroPageAddress(pc uint16) uint16 {
+	address := cpu.bus.Read(pc + 1)
 	return uint16(address)
 }
 
-func (cpu *Cpu) getZeroPageOffsetAddress(offset uint8) uint16 {
-	zeroPageAddr := cpu.bus.Read(cpu.pc + 1)
+func (cpu *Cpu) getZeroPageOffsetAddress(pc uint16, offset uint8) uint16 {
+	zeroPageAddr := cpu.bus.Read(pc + 1)
 	zeroPageAddr += offset
 	return uint16(zeroPageAddr)
 }
 
-func (cpu *Cpu) getAbsoluteAddress() uint16 {
-	low := cpu.bus.Read(cpu.pc + 1)
-	high := cpu.bus.Read(cpu.pc + 2)
+func (cpu *Cpu) getAbsoluteAddress(pc uint16) uint16 {
+	low := cpu.bus.Read(pc + 1)
+	high := cpu.bus.Read(pc + 2)
 	return uint16(high)<<8 | uint16(low)
 }
 
-func (cpu *Cpu) getAbsoluteOffsetAddress(offset uint8) (uint16, bool) {
-	address := cpu.getAbsoluteAddress()
+func (cpu *Cpu) getAbsoluteOffsetAddress(pc uint16, offset uint8) (uint16, bool) {
+	address := cpu.getAbsoluteAddress(pc)
 	offsetAddress := address + uint16(offset)
 	if address&0xFF00 != offsetAddress&0xFF00 {
 		return offsetAddress, true
@@ -135,19 +145,19 @@ func (cpu *Cpu) getAbsoluteOffsetAddress(offset uint8) (uint16, bool) {
 	}
 }
 
-func (cpu *Cpu) getRelativeAddress() (uint16, bool) {
-	offset := int8(cpu.bus.Read(cpu.pc + 1))
-	offsetAddress := int16(cpu.pc+2) + int16(offset)
+func (cpu *Cpu) getRelativeAddress(pc uint16) (uint16, bool) {
+	offset := int8(cpu.bus.Read(pc + 1))
+	offsetAddress := int16(pc+2) + int16(offset)
 	address := uint16(offsetAddress)
-	if (cpu.pc+2)&0xFF00 != address&0xFF00 {
+	if (pc+2)&0xFF00 != address&0xFF00 {
 		return address, true
 	} else {
 		return address, false
 	}
 }
 
-func (cpu *Cpu) getIndirectAddress() uint16 {
-	jumpAddress := cpu.getAbsoluteAddress()
+func (cpu *Cpu) getIndirectAddress(pc uint16) uint16 {
+	jumpAddress := cpu.getAbsoluteAddress(pc)
 	low := cpu.bus.Read(jumpAddress)
 
 	// the 6502 has a bug where it wraps incorrectly if the jump address is at
@@ -163,16 +173,16 @@ func (cpu *Cpu) getIndirectAddress() uint16 {
 	return address
 }
 
-func (cpu *Cpu) getIndexedIndirectAddress(offset uint8) uint16 {
-	zeroPageAddr := cpu.bus.Read(cpu.pc + 1)
+func (cpu *Cpu) getIndexedIndirectAddress(pc uint16, offset uint8) uint16 {
+	zeroPageAddr := cpu.bus.Read(pc + 1)
 	zeroPageAddr += offset
 	low := cpu.bus.Read(uint16(zeroPageAddr))
 	high := cpu.bus.Read(uint16(zeroPageAddr + 1))
 	return uint16(high)<<8 | uint16(low)
 }
 
-func (cpu *Cpu) getIndirectIndexedAddress(offset uint8) (uint16, bool) {
-	zeroPageAddr := cpu.bus.Read(cpu.pc + 1)
+func (cpu *Cpu) getIndirectIndexedAddress(pc uint16, offset uint8) (uint16, bool) {
+	zeroPageAddr := cpu.bus.Read(pc + 1)
 	low := cpu.bus.Read(uint16(zeroPageAddr))
 	high := cpu.bus.Read(uint16(zeroPageAddr + 1))
 	address := uint16(high)<<8 | uint16(low)
@@ -190,7 +200,7 @@ func (cpu *Cpu) adc(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 		if pageCrossed {
 			cpu.cycleDelay++
@@ -235,7 +245,7 @@ func (cpu *Cpu) and(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 		if pageCrossed {
 			cpu.cycleDelay++
@@ -264,7 +274,7 @@ func (cpu *Cpu) asl(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeAccumulator {
 		value = cpu.a
 	} else {
-		address, _ = cpu.mustGetAddress(addrMode)
+		address, _ = cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 	}
 
@@ -300,7 +310,7 @@ func (cpu *Cpu) bcs(addrMode addressMode, pc uint16) {
 	if !cpu.testFlag(flagCarry) {
 		return
 	}
-	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 	cpu.pc = address
 
 	cpu.cycleDelay++
@@ -314,7 +324,7 @@ func (cpu *Cpu) bcc(addrMode addressMode, pc uint16) {
 	if cpu.testFlag(flagCarry) {
 		return
 	}
-	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 	cpu.pc = address
 
 	cpu.cycleDelay++
@@ -325,7 +335,7 @@ func (cpu *Cpu) bcc(addrMode addressMode, pc uint16) {
 
 // bit test
 func (cpu *Cpu) bit(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
 	value := cpu.bus.Read(address)
 	result := cpu.a & value
 
@@ -353,7 +363,7 @@ func (cpu *Cpu) bmi(addrMode addressMode, pc uint16) {
 	if !cpu.testFlag(flagNegative) {
 		return
 	}
-	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 	cpu.pc = address
 
 	cpu.cycleDelay++
@@ -367,7 +377,7 @@ func (cpu *Cpu) bne(addrMode addressMode, pc uint16) {
 	if cpu.testFlag(flagZero) {
 		return
 	}
-	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 	cpu.pc = address
 
 	cpu.cycleDelay++
@@ -381,7 +391,7 @@ func (cpu *Cpu) bpl(addrMode addressMode, pc uint16) {
 	if cpu.testFlag(flagNegative) {
 		return
 	}
-	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 	cpu.pc = address
 
 	cpu.cycleDelay++
@@ -408,7 +418,7 @@ func (cpu *Cpu) bvc(addrMode addressMode, pc uint16) {
 	if cpu.testFlag(flagOverflow) {
 		return
 	}
-	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 	cpu.pc = address
 
 	cpu.cycleDelay++
@@ -422,7 +432,7 @@ func (cpu *Cpu) bvs(addrMode addressMode, pc uint16) {
 	if !cpu.testFlag(flagOverflow) {
 		return
 	}
-	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 	cpu.pc = address
 
 	cpu.cycleDelay++
@@ -436,7 +446,7 @@ func (cpu *Cpu) beq(addrMode addressMode, pc uint16) {
 	if !cpu.testFlag(flagZero) {
 		return
 	}
-	address, pageCrossed := cpu.mustGetAddress(addrMode)
+	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 	cpu.pc = address
 
 	cpu.cycleDelay++
@@ -471,7 +481,7 @@ func (cpu *Cpu) cmp(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 		if pageCrossed {
 			cpu.cycleDelay++
@@ -505,7 +515,7 @@ func (cpu *Cpu) cpx(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, _ := cpu.mustGetAddress(addrMode)
+		address, _ := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 	}
 
@@ -536,7 +546,7 @@ func (cpu *Cpu) cpy(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, _ := cpu.mustGetAddress(addrMode)
+		address, _ := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 	}
 
@@ -563,8 +573,50 @@ func (cpu *Cpu) cpy(addrMode addressMode, pc uint16) {
 
 // decrement memory and compare a
 func (cpu *Cpu) dcp(addrMode addressMode, pc uint16) {
-	cpu.dec(addrMode, pc)
-	cpu.cmp(addrMode, pc)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
+	value := cpu.bus.Read(address)
+	value--
+	cpu.bus.Write(address, value)
+
+	result := cpu.a - value
+
+	if cpu.a >= value {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	if cpu.a == value {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if result&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+}
+
+// decrement memory
+func (cpu *Cpu) dec(addrMode addressMode, pc uint16) {
+	address, _ := cpu.mustGetAddress(addrMode, pc)
+	value := cpu.bus.Read(address)
+	value--
+	cpu.bus.Write(address, value)
+
+	if value == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
 
 // decrement x
@@ -601,33 +653,13 @@ func (cpu *Cpu) dey(addrMode addressMode, pc uint16) {
 	}
 }
 
-// decrement memory
-func (cpu *Cpu) dec(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
-	value := cpu.bus.Read(address)
-	value--
-	cpu.bus.Write(address, value)
-
-	if value == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if value&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
-}
-
 // bitwise exclusive or
 func (cpu *Cpu) eor(addrMode addressMode, pc uint16) {
 	var value uint8
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 		if pageCrossed {
 			cpu.cycleDelay++
@@ -650,7 +682,7 @@ func (cpu *Cpu) eor(addrMode addressMode, pc uint16) {
 
 // increment memory
 func (cpu *Cpu) inc(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
 	value := cpu.bus.Read(address)
 	value++
 	cpu.bus.Write(address, value)
@@ -704,20 +736,53 @@ func (cpu *Cpu) iny(addrMode addressMode, pc uint16) {
 
 // increment memory and subtract with carry
 func (cpu *Cpu) isb(addrMode addressMode, pc uint16) {
-	cpu.inc(addrMode, pc)
-	cpu.sbc(addrMode, pc)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
+	value := cpu.bus.Read(address)
+	value++
+	cpu.bus.Write(address, value)
+
+	result := int16(cpu.a) - int16(value)
+	if !cpu.testFlag(flagCarry) {
+		result--
+	}
+
+	if result >= 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	if result == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if (uint8(result)^cpu.a)&(uint8(result)^^value)&0x80 > 0 {
+		cpu.setFlag(flagOverflow)
+	} else {
+		cpu.clearFlag(flagOverflow)
+	}
+
+	if result&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+
+	cpu.a = uint8(result)
 }
 
 // jump
 func (cpu *Cpu) jmp(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
 	cpu.pc = address
 }
 
 // jump to subroutine
 func (cpu *Cpu) jsr(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
-	cpu.pc += 2
+	address, _ := cpu.mustGetAddress(addrMode, pc)
+	pc += 2
 	low := uint8(pc & 0x00FF)
 	high := uint8((pc & 0xFF00) >> 8)
 	cpu.stackPush(high)
@@ -727,8 +792,26 @@ func (cpu *Cpu) jsr(addrMode addressMode, pc uint16) {
 
 // load a and load x
 func (cpu *Cpu) lax(addrMode addressMode, pc uint16) {
-	cpu.lda(addrMode, pc)
-	cpu.ldx(addrMode, pc)
+	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
+	value := cpu.bus.Read(address)
+
+	cpu.a = value
+	cpu.x = value
+
+	if value == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
 
 // load a
@@ -737,7 +820,7 @@ func (cpu *Cpu) lda(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 		if pageCrossed {
 			cpu.cycleDelay++
@@ -765,7 +848,7 @@ func (cpu *Cpu) ldx(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 		if pageCrossed {
 			cpu.cycleDelay++
@@ -793,7 +876,7 @@ func (cpu *Cpu) ldy(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 		if pageCrossed {
 			cpu.cycleDelay++
@@ -822,7 +905,7 @@ func (cpu *Cpu) lsr(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeAccumulator {
 		value = cpu.a
 	} else {
-		address, _ = cpu.mustGetAddress(addrMode)
+		address, _ = cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 	}
 
@@ -850,6 +933,10 @@ func (cpu *Cpu) lsr(addrMode addressMode, pc uint16) {
 
 // no operation
 func (cpu *Cpu) nop(addrMode addressMode, pc uint16) {
+	_, pageCrossed := cpu.mustGetAddress(addrMode, pc)
+	if pageCrossed {
+		cpu.cycleDelay++
+	}
 	// do nothing
 }
 
@@ -859,7 +946,7 @@ func (cpu *Cpu) ora(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 		if pageCrossed {
 			cpu.cycleDelay++
@@ -912,12 +999,42 @@ func (cpu *Cpu) pla(addrMode addressMode, pc uint16) {
 func (cpu *Cpu) plp(addrMode addressMode, pc uint16) {
 	flags := cpu.stackPop()
 	cpu.status = flags & 0xCF
+	cpu.status |= flagUnused
 }
 
 // rotate left and bitwise and
 func (cpu *Cpu) rla(addrMode addressMode, pc uint16) {
-	cpu.rol(addrMode, pc)
-	cpu.and(addrMode, pc)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
+	value := cpu.bus.Read(address)
+
+	carry := cpu.testFlag(flagCarry)
+	if value&0x80 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value <<= 1
+
+	if carry {
+		value |= 0x01
+	}
+
+	cpu.bus.Write(address, value)
+
+	cpu.a &= value
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
 
 // rotate left
@@ -927,7 +1044,7 @@ func (cpu *Cpu) rol(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeAccumulator {
 		value = cpu.a
 	} else {
-		address, _ = cpu.mustGetAddress(addrMode)
+		address, _ = cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 	}
 
@@ -970,7 +1087,7 @@ func (cpu *Cpu) ror(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeAccumulator {
 		value = cpu.a
 	} else {
-		address, _ = cpu.mustGetAddress(addrMode)
+		address, _ = cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 	}
 
@@ -1007,8 +1124,53 @@ func (cpu *Cpu) ror(addrMode addressMode, pc uint16) {
 
 // rotate right and add with carry
 func (cpu *Cpu) rra(addrMode addressMode, pc uint16) {
-	cpu.ror(addrMode, pc)
-	cpu.adc(addrMode, pc)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
+	value := cpu.bus.Read(address)
+
+	carry := cpu.testFlag(flagCarry)
+	if value&0x01 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value >>= 1
+	if carry {
+		value |= 0x80
+	}
+
+	cpu.bus.Write(address, value)
+
+	result := uint16(cpu.a) + uint16(value)
+	if cpu.testFlag(flagCarry) {
+		result++
+	}
+
+	if result > 255 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	if uint8(result) == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if (uint8(result)^cpu.a)&(uint8(result)^value)&0x80 > 0 {
+		cpu.setFlag(flagOverflow)
+	} else {
+		cpu.clearFlag(flagOverflow)
+	}
+
+	if result&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
+
+	cpu.a = uint8(result)
 }
 
 // return from interrupt
@@ -1017,6 +1179,7 @@ func (cpu *Cpu) rti(addrMode addressMode, pc uint16) {
 	low := cpu.stackPop()
 	high := cpu.stackPop()
 	cpu.status = flags & 0xCF
+	cpu.status |= flagUnused
 	cpu.pc = uint16(high)<<8 | uint16(low)
 }
 
@@ -1030,7 +1193,7 @@ func (cpu *Cpu) rts(addrMode addressMode, pc uint16) {
 
 // store a and x
 func (cpu *Cpu) sax(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
 	value := cpu.a & cpu.x
 	cpu.bus.Write(address, value)
 }
@@ -1041,7 +1204,7 @@ func (cpu *Cpu) sbc(addrMode addressMode, pc uint16) {
 	if addrMode == addrModeImmediate {
 		value = cpu.bus.Read(pc + 1)
 	} else {
-		address, pageCrossed := cpu.mustGetAddress(addrMode)
+		address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
 		value = cpu.bus.Read(address)
 		if pageCrossed {
 			cpu.cycleDelay++
@@ -1097,31 +1260,77 @@ func (cpu *Cpu) sei(addrMode addressMode, pc uint16) {
 
 // arithmetic shift left and bitwise or
 func (cpu *Cpu) slo(addrMode addressMode, pc uint16) {
-	cpu.asl(addrMode, pc)
-	cpu.ora(addrMode, pc)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
+	value := cpu.bus.Read(address)
+
+	if value&0x80 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value <<= 1
+
+	cpu.bus.Write(address, value)
+
+	cpu.a |= value
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
 
 // logical shift right and bitwise exclusive or
 func (cpu *Cpu) sre(addrMode addressMode, pc uint16) {
-	cpu.lsr(addrMode, pc)
-	cpu.eor(addrMode, pc)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
+	value := cpu.bus.Read(address)
+
+	if value&0x01 > 0 {
+		cpu.setFlag(flagCarry)
+	} else {
+		cpu.clearFlag(flagCarry)
+	}
+
+	value >>= 1
+	cpu.bus.Write(address, value)
+
+	cpu.a ^= value
+
+	if cpu.a == 0 {
+		cpu.setFlag(flagZero)
+	} else {
+		cpu.clearFlag(flagZero)
+	}
+	if cpu.a&0x80 > 0 {
+		cpu.setFlag(flagNegative)
+	} else {
+		cpu.clearFlag(flagNegative)
+	}
 }
 
 // store a
 func (cpu *Cpu) sta(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
 	cpu.bus.Write(address, cpu.a)
 }
 
 // store x
 func (cpu *Cpu) stx(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
 	cpu.bus.Write(address, cpu.x)
 }
 
 // store y
 func (cpu *Cpu) sty(addrMode addressMode, pc uint16) {
-	address, _ := cpu.mustGetAddress(addrMode)
+	address, _ := cpu.mustGetAddress(addrMode, pc)
 	cpu.bus.Write(address, cpu.y)
 }
 

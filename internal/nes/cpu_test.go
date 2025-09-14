@@ -25,7 +25,7 @@ func TestGetZeroPageAddress(t *testing.T) {
 	bus.data[0x0601] = 0x69
 	cpu := NewCpu(bus)
 	cpu.pc = 0x0600
-	actual := cpu.getZeroPageAddress()
+	actual := cpu.getZeroPageAddress(cpu.pc)
 	if actual != 0x69 {
 		t.Errorf("expected address 0x69, got 0x%X", actual)
 	}
@@ -54,7 +54,7 @@ func TestGetZeroPageOffsetAddress(t *testing.T) {
 			bus.data[0x0601] = test.input
 			cpu := NewCpu(bus)
 			cpu.pc = 0x0600
-			actual := cpu.getZeroPageOffsetAddress(test.offset)
+			actual := cpu.getZeroPageOffsetAddress(cpu.pc, test.offset)
 			if actual != test.expected {
 				t.Errorf("%s: expected address 0x%X, got 0x%X", t.Name(),
 					test.expected, actual)
@@ -69,7 +69,7 @@ func TestGetAbsoluteAddress(t *testing.T) {
 	bus.data[0x0602] = 0xC3
 	cpu := NewCpu(bus)
 	cpu.pc = 0x0600
-	actual := cpu.getAbsoluteAddress()
+	actual := cpu.getAbsoluteAddress(cpu.pc)
 	if actual != 0xC325 {
 		t.Errorf("expected address 0xC325, got 0x%X", actual)
 	}
@@ -105,7 +105,7 @@ func TestGetAbsoluteOffsetAddress(t *testing.T) {
 		bus.data[0x0602] = uint8(test.input & 0xFF00 >> 8)
 		cpu := NewCpu(bus)
 		cpu.pc = 0x0600
-		actual, actualPageCrossed := cpu.getAbsoluteOffsetAddress(test.offset)
+		actual, actualPageCrossed := cpu.getAbsoluteOffsetAddress(cpu.pc, test.offset)
 		if actual != test.expected {
 			t.Errorf("%s: expected address 0x%X, got 0x%X", t.Name(),
 				test.expected, actual)
@@ -149,7 +149,7 @@ func TestGetRelativeAddress(t *testing.T) {
 			bus.data[test.pc+1] = test.input
 			cpu := NewCpu(bus)
 			cpu.pc = test.pc
-			actual, actualPageCrossed := cpu.getRelativeAddress()
+			actual, actualPageCrossed := cpu.getRelativeAddress(cpu.pc)
 			if actual != test.expected {
 				t.Errorf("%s: expected address 0x%X, got 0x%X", t.Name(),
 					test.expected, actual)
@@ -172,7 +172,7 @@ func TestGetIndirectAddress(t *testing.T) {
 		bus.data[0x825A] = 0x34
 		bus.data[0x825B] = 0x12
 		cpu := NewCpu(bus)
-		actual := cpu.getIndirectAddress()
+		actual := cpu.getIndirectAddress(cpu.pc)
 		if actual != 0x1234 {
 			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
 		}
@@ -186,7 +186,7 @@ func TestGetIndirectAddress(t *testing.T) {
 		bus.data[0x3000] = 0x12
 		cpu := NewCpu(bus)
 		cpu.pc = 0x0600
-		actual := cpu.getIndirectAddress()
+		actual := cpu.getIndirectAddress(cpu.pc)
 		if actual != 0x1234 {
 			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
 		}
@@ -201,7 +201,7 @@ func TestGetIndexedIndirectAddress(t *testing.T) {
 		bus.data[0x0089] = 0x12
 		cpu := NewCpu(bus)
 		cpu.pc = 0x0600
-		actual := cpu.getIndexedIndirectAddress(0x08)
+		actual := cpu.getIndexedIndirectAddress(cpu.pc, 0x08)
 		if actual != 0x1234 {
 			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
 		}
@@ -214,7 +214,7 @@ func TestGetIndexedIndirectAddress(t *testing.T) {
 		bus.data[0x0000] = 0x12
 		cpu := NewCpu(bus)
 		cpu.pc = 0x0600
-		actual := cpu.getIndexedIndirectAddress(0x0F)
+		actual := cpu.getIndexedIndirectAddress(cpu.pc, 0x0F)
 		if actual != 0x1234 {
 			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
 		}
@@ -229,7 +229,7 @@ func TestGetIndirectIndexedAddress(t *testing.T) {
 		bus.data[0x4C] = 0x12
 		cpu := NewCpu(bus)
 		cpu.pc = 0x0600
-		actual, pageCrossed := cpu.getIndirectIndexedAddress(0x0E)
+		actual, pageCrossed := cpu.getIndirectIndexedAddress(cpu.pc, 0x0E)
 		if actual != 0x1234 {
 			t.Errorf("%s: expected address 0x1234, got 0x%X", t.Name(), actual)
 		}
@@ -245,7 +245,7 @@ func TestGetIndirectIndexedAddress(t *testing.T) {
 		bus.data[0x4C] = 0xA2
 		cpu := NewCpu(bus)
 		cpu.pc = 0x0600
-		actual, pageCrossed := cpu.getIndirectIndexedAddress(0x23)
+		actual, pageCrossed := cpu.getIndirectIndexedAddress(cpu.pc, 0x23)
 		if actual != 0xA313 {
 			t.Errorf("%s: expected address 0xA313, got 0x%X", t.Name(), actual)
 		}
@@ -1005,7 +1005,7 @@ func TestJsr(t *testing.T) {
 	oldPcLow := cpu.stackPop()
 	oldPcHigh := cpu.stackPop()
 	oldPc := uint16(oldPcHigh)<<8 | uint16(oldPcLow)
-	if oldPc != 0x0600 {
+	if oldPc != 0x0602 {
 		t.Errorf("wrong address pushed to stack, got 0x%X", oldPc)
 	}
 }

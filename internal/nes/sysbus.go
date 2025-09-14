@@ -25,6 +25,8 @@ func (bus *SysBus) InsertCartridge(cartridge *Cartridge) {
 func (bus *SysBus) Read(address uint16) uint8 {
 	if address < 0x0800 {
 		return bus.cpuRam[address]
+	} else if address >= 0x8000 && bus.cartridge != nil {
+		return bus.cartridge.MustRead(address)
 	}
 	return 0x00
 }
