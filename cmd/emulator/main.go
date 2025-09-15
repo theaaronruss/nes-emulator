@@ -3,35 +3,26 @@ package main
 import (
 	"github.com/gopxl/pixel/v2"
 	"github.com/gopxl/pixel/v2/backends/opengl"
-)
-
-const (
-	frameWidth  float64 = 256
-	frameHeight float64 = 240
+	"github.com/theaaronruss/nes-emulator/internal/nes"
 )
 
 func run() {
 	windowConfig := opengl.WindowConfig{
 		Title:  "NES Emulator",
-		Bounds: pixel.R(0, 0, frameWidth*2, frameHeight*2),
+		Bounds: pixel.R(0, 0, nes.FrameWidth*2, nes.FrameHeight*2),
 	}
 	window, err := opengl.NewWindow(windowConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	canvas := opengl.NewCanvas(pixel.R(0, 0, frameWidth, frameHeight))
-	pixelCount := int(frameWidth) * int(frameHeight)
-	frameBuffer := make([]uint8, 4*pixelCount)
-	for i := 0; i < 4*pixelCount; i += 4 {
-		frameBuffer[i] = 0x00
-		frameBuffer[i+1] = 0x00
-		frameBuffer[i+2] = 0x00
-		frameBuffer[i+3] = 0xFF
-	}
-	canvas.SetPixels(frameBuffer)
+	ppu := nes.NewPpu()
+
+	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 
 	for !window.Closed() {
+		canvas.SetPixels(ppu.FrameBuffer)
+
 		transMatrix := pixel.IM
 		transMatrix = transMatrix.ScaledXY(
 			pixel.Vec{},
@@ -39,6 +30,7 @@ func run() {
 		)
 		transMatrix = transMatrix.Moved(window.Bounds().Center())
 		canvas.Draw(window, transMatrix)
+
 		window.Update()
 	}
 }
