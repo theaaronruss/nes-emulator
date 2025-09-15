@@ -32,6 +32,8 @@ type Cpu struct {
 	bus         BusReadWriter
 	cycleDelay  int
 	totalCycles int
+	handleIrq   bool
+	handleNmi   bool
 }
 
 func NewCpu(bus BusReadWriter) *Cpu {
@@ -43,12 +45,27 @@ func NewCpu(bus BusReadWriter) *Cpu {
 		pc:     uint16(pcHigh)<<8 | uint16(pcLow),
 		status: initialStatus, bus: bus,
 		cycleDelay: 7, totalCycles: 0,
+		handleIrq: false, handleNmi: false,
 	}
 	return cpu
 }
 
 func (cpu *Cpu) Clock() {
 	if cpu.cycleDelay <= 0 {
+		if cpu.handleIrq && cpu.status&flagIntDisable == 0 {
+			low := cpu.bus.Read(irqVector)
+			high := cpu.bus.Read(irqVector + 1)
+			address := uint16(high)<<8 | uint16(low)
+			cpu.pc = address
+			cpu.handleIrq = false
+		} else if cpu.handleNmi {
+			low := cpu.bus.Read(nmiVector)
+			high := cpu.bus.Read(nmiVector + 1)
+			address := uint16(high)<<8 | uint16(low)
+			cpu.pc = address
+			cpu.handleNmi = false
+		}
+
 		opcode := cpu.bus.Read(cpu.pc)
 		instruction := opcodes[opcode]
 		currPc := cpu.pc
@@ -60,9 +77,13 @@ func (cpu *Cpu) Clock() {
 	cpu.totalCycles++
 }
 
-// TODO: implement irq
+func (cpu *Cpu) Irq() {
+	cpu.handleIrq = true
+}
 
-// TODO: implement nmi
+func (cpu *Cpu) Nmi() {
+	cpu.handleNmi = true
+}
 
 func (cpu *Cpu) setFlag(flag uint8) {
 	cpu.status |= flag
