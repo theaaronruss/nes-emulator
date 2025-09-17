@@ -7,6 +7,16 @@ const (
 	scanLines   int     = 262
 )
 
+const (
+	nametableDataSize int = 8192
+	paletteDataSize   int = 32
+
+	nametableAddr    uint16 = 0x2000
+	nametableMemSize uint16 = 4096
+	paletteAddr      uint16 = 0x3F00
+	paletteMemSize   uint16 = 256
+)
+
 // public registers
 const (
 	ppuCtrl   uint16 = 0x2000
@@ -23,12 +33,15 @@ type Ppu struct {
 	FrameBuffer   []uint8
 	FrameComplete bool
 
-	currScanLine int
-	currCycle    int
-	v            uint16
-	t            uint16
-	x            uint8
-	w            bool
+	currScanLine  int
+	currCycle     int
+	dataBuffer    uint8
+	nametableData [nametableDataSize]uint8
+	paletteData   [paletteDataSize]uint8
+	v             uint16 // current vram address
+	t             uint16 // temp address
+	x             uint8  // fine x scroll
+	w             bool   // write latch
 }
 
 func NewPpu() *Ppu {
@@ -37,6 +50,7 @@ func NewPpu() *Ppu {
 		FrameComplete: false,
 		currScanLine:  0,
 		currCycle:     0,
+		dataBuffer:    0,
 		v:             0, t: 0, x: 0, w: false,
 	}
 }
@@ -55,30 +69,36 @@ func (ppu *Ppu) Clock() {
 }
 
 func (ppu *Ppu) internalRead(address uint16) uint8 {
+	if address >= nametableAddr && address < nametableAddr+nametableMemSize {
+		nametableAddress := address - nametableAddr
+		return ppu.nametableData[nametableAddress]
+	} else if address >= paletteAddr && address < paletteAddr+paletteMemSize {
+		paletteAddress := (address - paletteAddr) % uint16(paletteDataSize)
+		return ppu.paletteData[paletteAddress]
+	}
 	return 0x00
 }
 
 func (ppu *Ppu) internalWrite(address uint16, data uint8) {
+	if address >= 0x2000 && address < 0x3000 {
+		ppu.nametableData[address-0x2000] = data
+	} else if address >= paletteAddr && address < paletteAddr+paletteMemSize {
+		paletteAddress := (address - paletteAddr) % uint16(paletteDataSize)
+		ppu.paletteData[paletteAddress] = data
+	}
 }
 
 func (ppu *Ppu) Read(address uint16) uint8 {
 	switch address {
-	case ppuCtrl:
-		// TODO: implement ppuctrl
-	case ppuMask:
-		// TODO: implement ppumask
 	case ppuStatus:
 		// TODO: implement ppustatus
-	case oamAddr:
-		// TODO: implement oamaddr
 	case oamData:
 		// TODO: implement oamdata
-	case ppuScroll:
-		// TODO: implement ppuscroll
-	case ppuAddr:
-		// TODO: implement ppuaddr
 	case ppuData:
-		// TODO: implement ppudata
+		data := ppu.dataBuffer
+		ppu.dataBuffer = ppu.internalRead(ppu.v)
+		ppu.v++ // TODO: increment by 1 or 32 based on ppuCtrl
+		return data
 	}
 	return 0x0000
 }
@@ -89,8 +109,6 @@ func (ppu *Ppu) Write(address uint16, data uint8) {
 		// TODO: implement ppuctrl
 	case ppuMask:
 		// TODO: implement ppumask
-	case ppuStatus:
-		// TODO: implement ppustatus
 	case oamAddr:
 		// TODO: implement oamaddr
 	case oamData:
@@ -107,6 +125,7 @@ func (ppu *Ppu) Write(address uint16, data uint8) {
 		}
 		ppu.w = !ppu.w
 	case ppuData:
-		// TODO: implement ppudata
+		ppu.internalWrite(ppu.v, data)
+		ppu.v++ // TODO: increment by 1 or 32 based on ppuCtrl
 	}
 }
