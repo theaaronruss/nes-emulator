@@ -37,16 +37,4 @@ func run() {
 
 func main() {
 	opengl.Run(run)
-
-	// cartridge, err := nes.NewCartridge("nestest.nes")
-	// if err != nil {
-	// 	fmt.Fprintln(os.Stderr, err.Error())
-	// 	return
-	// }
-	// bus := nes.NewSysBus()
-	// bus.InsertCartridge(cartridge)
-	// cpu := nes.NewCpu(bus)
-	// for {
-	// 	cpu.Clock()
-	// }
 }
