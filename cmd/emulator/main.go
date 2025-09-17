@@ -16,7 +16,8 @@ func run() {
 		panic(err)
 	}
 
-	ppu := nes.NewPpu()
+	bus := nes.NewSysBus()
+	ppu := nes.NewPpu(bus)
 
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 

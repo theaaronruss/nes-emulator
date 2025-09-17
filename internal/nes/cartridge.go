@@ -40,12 +40,22 @@ func NewCartridge(filePath string) (*Cartridge, error) {
 	return cartridge, nil
 }
 
-func (cartridge *Cartridge) MustRead(address uint16) uint8 {
-	if address > uint16(programDataSize) {
-		return cartridge.programData[address%uint16(programDataSize)]
+func (cartridge *Cartridge) MustReadProgramData(address uint16) uint8 {
+	if address >= uint16(programDataSize) {
+		error := fmt.Sprintf("game cartridge program data invalid address: 0x%X",
+			address)
+		panic(error)
 	}
-	error := fmt.Sprintf("game cartridge invalid address: 0x%X", address)
-	panic(error)
+	return cartridge.programData[address%uint16(programDataSize)]
+}
+
+func (cartridge *Cartridge) MustReadCharacterData(address uint16) uint8 {
+	if address >= uint16(characterDataSize) {
+		error := fmt.Sprintf("game cartridge character data invalid address: 0x%X",
+			address)
+		panic(error)
+	}
+	return cartridge.characterData[address%uint16(characterDataSize)]
 }
 
 func (cartridge *Cartridge) parseProgramData(file *os.File) error {

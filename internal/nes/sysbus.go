@@ -1,7 +1,17 @@
 package nes
 
 const (
-	cpuRamSize int = 2048
+	cpuRamSize   int = 2048
+	ppuRegisters int = 8
+)
+
+// memory mapping
+const (
+	cpuRamAddr    uint16 = 0x0000
+	cpuRamMemSize uint16 = 2048
+	ppuAddr       uint16 = 0x2000
+	ppuMemSize    uint16 = 8192
+	cartridgeAddr uint16 = 0x8000
 )
 
 type BusReadWriter interface {
@@ -28,20 +38,24 @@ func (bus *SysBus) AddPpu(ppu *Ppu) {
 }
 
 func (bus *SysBus) Read(address uint16) uint8 {
-	if address < 0x0800 {
+	if address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize {
 		return bus.cpuRam[address]
-	} else if address >= 0x2000 && address < 0x2008 && bus.ppu != nil {
-		return bus.ppu.Read(address - 0x2000)
-	} else if address >= 0x8000 && bus.cartridge != nil {
-		return bus.cartridge.MustRead(address)
+	} else if address >= ppuAddr && address < ppuAddr+ppuMemSize &&
+		bus.ppu != nil {
+		ppuAddress := (address - 0x2000) % uint16(ppuRegisters)
+		return bus.ppu.Read(ppuAddress)
+	} else if address >= cartridgeAddr && bus.cartridge != nil {
+		return bus.cartridge.MustReadProgramData(address)
 	}
 	return 0x00
 }
 
 func (bus *SysBus) Write(address uint16, data uint8) {
-	if address >= 0x2000 && address < 0x2008 && bus.ppu != nil {
-		bus.ppu.Write(address-0x2000, data)
-	} else if address < 0x0800 {
+	if address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize {
 		bus.cpuRam[address] = data
+	} else if address >= ppuAddr && address < ppuAddr+ppuMemSize &&
+		bus.ppu != nil {
+		ppuAddress := (address - 0x2000) % uint16(ppuRegisters)
+		bus.ppu.Write(ppuAddress, data)
 	}
 }
