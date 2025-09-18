@@ -83,6 +83,7 @@ func (ppu *Ppu) Clock() {
 
 	if ppu.currScanLine == 241 && ppu.currCycle == 1 {
 		ppu.vblankFlag = true
+		ppu.bus.cpu.Nmi()
 	} else if ppu.currScanLine == 261 && ppu.currCycle == 1 {
 		ppu.vblankFlag = false
 	}

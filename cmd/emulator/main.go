@@ -17,6 +17,8 @@ func run() {
 	}
 
 	bus := nes.NewSysBus()
+	cpu := nes.NewCpu(bus)
+	bus.SetCpu(cpu)
 	ppu := nes.NewPpu(bus)
 
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))

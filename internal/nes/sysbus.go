@@ -22,6 +22,7 @@ type BusReadWriter interface {
 type SysBus struct {
 	cpuRam    [cpuRamSize]uint8
 	cartridge *Cartridge
+	cpu       *Cpu
 	ppu       *Ppu
 }
 
@@ -33,7 +34,11 @@ func (bus *SysBus) InsertCartridge(cartridge *Cartridge) {
 	bus.cartridge = cartridge
 }
 
-func (bus *SysBus) AddPpu(ppu *Ppu) {
+func (bus *SysBus) SetCpu(cpu *Cpu) {
+	bus.cpu = cpu
+}
+
+func (bus *SysBus) SetPpu(ppu *Ppu) {
 	bus.ppu = ppu
 }
 
