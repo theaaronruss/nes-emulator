@@ -16,7 +16,8 @@ func run() {
 		panic(err)
 	}
 
-	system := nes.NewSystem()
+	cartridge, _ := nes.NewCartridge("nestest.nes")
+	system := nes.NewSystem(cartridge)
 
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 

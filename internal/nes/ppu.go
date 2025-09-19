@@ -46,7 +46,7 @@ const (
 	vblankMask uint8 = 0x80
 )
 
-type Ppu struct {
+type ppu struct {
 	FrameBuffer   []uint8
 	FrameComplete bool
 
@@ -71,14 +71,14 @@ type Ppu struct {
 	w bool
 }
 
-func NewPpu(sys *System) *Ppu {
-	return &Ppu{
+func NewPpu(sys *System) *ppu {
+	return &ppu{
 		FrameBuffer: make([]uint8, 4*int(FrameWidth)*int(FrameHeight)),
 		sys:         sys,
 	}
 }
 
-func (ppu *Ppu) Clock() {
+func (ppu *ppu) Clock() {
 	ppu.currCycle++
 
 	if ppu.currScanLine == 241 && ppu.currCycle == 1 {
@@ -98,13 +98,13 @@ func (ppu *Ppu) Clock() {
 	}
 }
 
-func (ppu *Ppu) WritePpuCtrl(data uint8) {
+func (ppu *ppu) WritePpuCtrl(data uint8) {
 }
 
-func (ppu *Ppu) WritePpuMask(data uint8) {
+func (ppu *ppu) WritePpuMask(data uint8) {
 }
 
-func (ppu *Ppu) ReadPpuStatus() uint8 {
+func (ppu *ppu) ReadPpuStatus() uint8 {
 	var status uint8
 
 	if ppu.vblankFlag {
@@ -114,20 +114,20 @@ func (ppu *Ppu) ReadPpuStatus() uint8 {
 	return status
 }
 
-func (ppu *Ppu) WriteOamAddr(data uint8) {
+func (ppu *ppu) WriteOamAddr(data uint8) {
 }
 
-func (ppu *Ppu) ReadOamData() uint8 {
+func (ppu *ppu) ReadOamData() uint8 {
 	return 0x00
 }
 
-func (ppu *Ppu) WriteOamData(data uint8) {
+func (ppu *ppu) WriteOamData(data uint8) {
 }
 
-func (ppu *Ppu) WritePpuScroll(data uint8) {
+func (ppu *ppu) WritePpuScroll(data uint8) {
 }
 
-func (ppu *Ppu) WritePpuAddr(data uint8) {
+func (ppu *ppu) WritePpuAddr(data uint8) {
 	if !ppu.w {
 		ppu.t = uint16(data) << 8
 		ppu.t &= 0xBFFF // clear bit 14
@@ -138,7 +138,7 @@ func (ppu *Ppu) WritePpuAddr(data uint8) {
 	ppu.w = !ppu.w
 }
 
-func (ppu *Ppu) ReadPpuData() uint8 {
+func (ppu *ppu) ReadPpuData() uint8 {
 	data := ppu.dataBuffer
 	ppu.dataBuffer = ppu.internalRead(ppu.v)
 
@@ -151,7 +151,7 @@ func (ppu *Ppu) ReadPpuData() uint8 {
 	return data
 }
 
-func (ppu *Ppu) WritePpuData(data uint8) {
+func (ppu *ppu) WritePpuData(data uint8) {
 	ppu.internalWrite(ppu.v, data)
 
 	if !ppu.vramIncrement {
@@ -161,7 +161,7 @@ func (ppu *Ppu) WritePpuData(data uint8) {
 	}
 }
 
-func (ppu *Ppu) internalRead(address uint16) uint8 {
+func (ppu *ppu) internalRead(address uint16) uint8 {
 	if address >= patternTableAddr && address < patternTableAddr+patternTableMemSize {
 		cartridgeAddress := address - patternTableAddr
 		return ppu.sys.cartridge.MustReadProgramData(cartridgeAddress)
@@ -175,7 +175,7 @@ func (ppu *Ppu) internalRead(address uint16) uint8 {
 	return 0x00
 }
 
-func (ppu *Ppu) internalWrite(address uint16, data uint8) {
+func (ppu *ppu) internalWrite(address uint16, data uint8) {
 	if address >= nameTableAddr && address < nameTableAddr+nameTableMemSize {
 		nametableAddress := address - nameTableAddr
 		ppu.nametableData[nametableAddress] = data
@@ -185,7 +185,7 @@ func (ppu *Ppu) internalWrite(address uint16, data uint8) {
 	}
 }
 
-func (ppu *Ppu) control(data uint8) {
+func (ppu *ppu) control(data uint8) {
 	if data&vblankNmiEnableMask > 0 {
 		ppu.vblankNmiEnable = true
 	} else {

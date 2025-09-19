@@ -14,26 +14,24 @@ const (
 type System struct {
 	cpuRam    [cpuRamSize]uint8
 	cartridge *Cartridge
-	cpu       *Cpu
-	ppu       *Ppu
+	cpu       *cpu
+	ppu       *ppu
 }
 
-func NewSystem() *System {
-	sys := &System{}
+func NewSystem(cartridge *Cartridge) *System {
+	sys := &System{
+		cartridge: cartridge,
+	}
 	sys.ppu = NewPpu(sys)
 	sys.cpu = NewCpu(sys)
 	return sys
-}
-
-func (sys *System) InsertCartridge(cartridge *Cartridge) {
-	sys.cartridge = cartridge
 }
 
 func (sys *System) FrameBuffer() []uint8 {
 	return sys.ppu.FrameBuffer
 }
 
-func (sys *System) Read(address uint16) uint8 {
+func (sys *System) read(address uint16) uint8 {
 	switch {
 	case address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize:
 		return sys.cpuRam[address]
@@ -49,7 +47,7 @@ func (sys *System) Read(address uint16) uint8 {
 	return 0x00
 }
 
-func (sys *System) Write(address uint16, data uint8) {
+func (sys *System) write(address uint16, data uint8) {
 	switch {
 	case address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize:
 		sys.cpuRam[address] = data
