@@ -22,6 +22,8 @@ func run() {
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 
 	for !window.Closed() {
+		system.Clock()
+
 		canvas.SetPixels(system.FrameBuffer())
 
 		transMatrix := pixel.IM

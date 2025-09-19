@@ -26,6 +26,8 @@ type System struct {
 	ppu       *ppu
 	cpuRam    [cpuRamSize]uint8
 	cartridge *Cartridge
+
+	ppuClocks int
 }
 
 func NewSystem(cartridge *Cartridge) *System {
@@ -39,6 +41,15 @@ func NewSystem(cartridge *Cartridge) *System {
 
 func (sys *System) FrameBuffer() []uint8 {
 	return sys.ppu.frameBuffer
+}
+
+func (sys *System) Clock() {
+	sys.ppu.Clock()
+	sys.ppuClocks++
+	if sys.ppuClocks >= 3 {
+		sys.ppuClocks = 0
+		sys.cpu.Clock()
+	}
 }
 
 func (sys *System) read(addr uint16) uint8 {
