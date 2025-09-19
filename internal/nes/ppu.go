@@ -6,11 +6,13 @@ const (
 )
 
 type ppu struct {
+	sys         *System
 	frameBuffer []uint8
 }
 
 func NewPpu(sys *System) *ppu {
 	return &ppu{
+		sys:         sys,
 		frameBuffer: make([]uint8, int(FrameWidth*FrameHeight*4)),
 	}
 }
