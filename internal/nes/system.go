@@ -46,11 +46,11 @@ func (sys *System) read(addr uint16) uint8 {
 	case addr >= cpuRamStartAddr && addr <= cpuRamEndAddr:
 		return sys.cpuRam[addr]
 	case addr == ppuStatus:
-		return sys.ppu.ReadPpuStatus(addr)
+		return sys.ppu.readPpuStatus()
 	case addr == oamData:
-		return sys.ppu.ReadOamData(addr)
+		return sys.ppu.readOamData()
 	case addr == ppuData:
-		return sys.ppu.ReadPpuData(addr)
+		return sys.ppu.readPpuData()
 	case sys.cartridge != nil && addr >= cartridgeStartAddr && addr <= cartridgeEndAddr:
 		return sys.cartridge.MustReadProgramData(addr)
 	default:
@@ -63,18 +63,18 @@ func (sys *System) write(addr uint16, data uint8) {
 	case addr >= cpuRamStartAddr && addr <= cpuRamEndAddr:
 		sys.cpuRam[addr] = data
 	case addr == ppuCtrl:
-		sys.ppu.WritePpuCtrl(addr, data)
+		sys.ppu.writePpuCtrl(data)
 	case addr == ppuMask:
-		sys.ppu.WritePpuMask(addr, data)
+		sys.ppu.writePpuMask(data)
 	case addr == oamAddr:
-		sys.ppu.WriteOamAddr(addr, data)
+		sys.ppu.writeOamAddr(data)
 	case addr == oamData:
-		sys.ppu.WriteOamData(addr, data)
+		sys.ppu.writeOamData(data)
 	case addr == ppuScroll:
-		sys.ppu.WritePpuScroll(addr, data)
+		sys.ppu.writePpuScroll(data)
 	case addr == ppuAddr:
-		sys.ppu.WritePpuAddr(addr, data)
+		sys.ppu.writePpuAddr(data)
 	case addr == ppuData:
-		sys.ppu.WritePpuData(addr, data)
+		sys.ppu.writePpuData(data)
 	}
 }
