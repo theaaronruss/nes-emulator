@@ -16,15 +16,12 @@ func run() {
 		panic(err)
 	}
 
-	bus := nes.NewSysBus()
-	cpu := nes.NewCpu(bus)
-	bus.SetCpu(cpu)
-	ppu := nes.NewPpu(bus)
+	system := nes.NewSystem()
 
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 
 	for !window.Closed() {
-		canvas.SetPixels(ppu.FrameBuffer)
+		canvas.SetPixels(system.FrameBuffer())
 
 		transMatrix := pixel.IM
 		transMatrix = transMatrix.ScaledXY(

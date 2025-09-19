@@ -53,7 +53,7 @@ type Ppu struct {
 	currScanLine int
 	currCycle    int
 
-	bus           *SysBus
+	sys           *System
 	dataBuffer    uint8
 	nametableData [nameTableDataSize]uint8
 	paletteData   [paletteDataSize]uint8
@@ -71,10 +71,10 @@ type Ppu struct {
 	w bool
 }
 
-func NewPpu(bus *SysBus) *Ppu {
+func NewPpu(sys *System) *Ppu {
 	return &Ppu{
 		FrameBuffer: make([]uint8, 4*int(FrameWidth)*int(FrameHeight)),
-		bus:         bus,
+		sys:         sys,
 	}
 }
 
@@ -83,7 +83,7 @@ func (ppu *Ppu) Clock() {
 
 	if ppu.currScanLine == 241 && ppu.currCycle == 1 {
 		ppu.vblankFlag = true
-		ppu.bus.cpu.Nmi()
+		ppu.sys.cpu.Nmi()
 	} else if ppu.currScanLine == 261 && ppu.currCycle == 1 {
 		ppu.vblankFlag = false
 	}
@@ -164,7 +164,7 @@ func (ppu *Ppu) WritePpuData(data uint8) {
 func (ppu *Ppu) internalRead(address uint16) uint8 {
 	if address >= patternTableAddr && address < patternTableAddr+patternTableMemSize {
 		cartridgeAddress := address - patternTableAddr
-		return ppu.bus.cartridge.MustReadProgramData(cartridgeAddress)
+		return ppu.sys.cartridge.MustReadProgramData(cartridgeAddress)
 	} else if address >= nameTableAddr && address < nameTableAddr+nameTableMemSize {
 		nametableAddress := address - nameTableAddr
 		return ppu.nametableData[nametableAddress]
