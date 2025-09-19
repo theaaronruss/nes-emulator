@@ -1,23 +1,15 @@
 package nes
 
 const (
-	cpuRamSize   int = 2048
-	ppuRegisters int = 8
+	cpuRamSize int = 2048
 )
 
 // memory mapping
 const (
 	cpuRamAddr    uint16 = 0x0000
 	cpuRamMemSize uint16 = 2048
-	ppuAddr       uint16 = 0x2000
-	ppuMemSize    uint16 = 8192
 	cartridgeAddr uint16 = 0x8000
 )
-
-type BusReadWriter interface {
-	Read(uint16) uint8
-	Write(uint16, uint8)
-}
 
 type SysBus struct {
 	cpuRam    [cpuRamSize]uint8
@@ -43,24 +35,38 @@ func (bus *SysBus) SetPpu(ppu *Ppu) {
 }
 
 func (bus *SysBus) Read(address uint16) uint8 {
-	if address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize {
+	switch {
+	case address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize:
 		return bus.cpuRam[address]
-	} else if address >= ppuAddr && address < ppuAddr+ppuMemSize &&
-		bus.ppu != nil {
-		ppuAddress := (address - 0x2000) % uint16(ppuRegisters)
-		return bus.ppu.Read(ppuAddress)
-	} else if address >= cartridgeAddr && bus.cartridge != nil {
+	case bus.ppu != nil && address == PpuStatus:
+		return bus.ppu.ReadPpuStatus()
+	case bus.ppu != nil && address == OamData:
+		return bus.ppu.ReadOamData()
+	case bus.ppu != nil && address == PpuData:
+		return bus.ppu.ReadPpuData()
+	case address >= cartridgeAddr && bus.cartridge != nil:
 		return bus.cartridge.MustReadProgramData(address)
 	}
 	return 0x00
 }
 
 func (bus *SysBus) Write(address uint16, data uint8) {
-	if address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize {
+	switch {
+	case address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize:
 		bus.cpuRam[address] = data
-	} else if address >= ppuAddr && address < ppuAddr+ppuMemSize &&
-		bus.ppu != nil {
-		ppuAddress := (address - 0x2000) % uint16(ppuRegisters)
-		bus.ppu.Write(ppuAddress, data)
+	case bus.ppu != nil && address == PpuCtrl:
+		bus.ppu.WritePpuCtrl(data)
+	case bus.ppu != nil && address == PpuMask:
+		bus.ppu.WritePpuMask(data)
+	case bus.ppu != nil && address == OamAddr:
+		bus.ppu.WriteOamAddr(data)
+	case bus.ppu != nil && address == OamData:
+		bus.ppu.WriteOamData(data)
+	case bus.ppu != nil && address == PpuScroll:
+		bus.ppu.WritePpuScroll(data)
+	case bus.ppu != nil && address == PpuAddr:
+		bus.ppu.WritePpuAddr(data)
+	case bus.ppu != nil && address == PpuData:
+		bus.ppu.WritePpuData(data)
 	}
 }

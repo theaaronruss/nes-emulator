@@ -98,53 +98,66 @@ func (ppu *Ppu) Clock() {
 	}
 }
 
-func (ppu *Ppu) Read(address uint16) uint8 {
-	switch address {
-	case PpuStatus:
-		var status uint8
-		if ppu.vblankFlag {
-			status |= vblankMask
-		}
-		return status
-	case OamData:
-		// TODO: implement oamdata
-	case PpuData:
-		data := ppu.dataBuffer
-		ppu.dataBuffer = ppu.internalRead(ppu.v)
-		ppu.v++ // TODO: increment by 1 or 32 based on ppuctrl
-		return data
-	}
-	return 0x0000
+func (ppu *Ppu) WritePpuCtrl(data uint8) {
 }
 
-func (ppu *Ppu) Write(address uint16, data uint8) {
-	switch address {
-	case PpuCtrl:
-		ppu.control(data)
-	case PpuMask:
-		// TODO: implement ppumask
-	case OamAddr:
-		// TODO: implement oamaddr
-	case OamData:
-		// TODO: implement oamdata
-	case PpuScroll:
-		// TODO: implement ppuscroll
-	case PpuAddr:
-		if !ppu.w {
-			ppu.t = uint16(data) << 8
-			ppu.t &= 0xBFFF // clear bit 14
-		} else {
-			ppu.t |= uint16(data)
-			ppu.v = ppu.t
-		}
-		ppu.w = !ppu.w
-	case PpuData:
-		ppu.internalWrite(ppu.v, data)
-		if !ppu.vramIncrement {
-			ppu.v++
-		} else {
-			ppu.v += 32
-		}
+func (ppu *Ppu) WritePpuMask(data uint8) {
+}
+
+func (ppu *Ppu) ReadPpuStatus() uint8 {
+	var status uint8
+
+	if ppu.vblankFlag {
+		status |= vblankMask
+	}
+
+	return status
+}
+
+func (ppu *Ppu) WriteOamAddr(data uint8) {
+}
+
+func (ppu *Ppu) ReadOamData() uint8 {
+	return 0x00
+}
+
+func (ppu *Ppu) WriteOamData(data uint8) {
+}
+
+func (ppu *Ppu) WritePpuScroll(data uint8) {
+}
+
+func (ppu *Ppu) WritePpuAddr(data uint8) {
+	if !ppu.w {
+		ppu.t = uint16(data) << 8
+		ppu.t &= 0xBFFF // clear bit 14
+	} else {
+		ppu.t |= uint16(data)
+		ppu.v = ppu.t
+	}
+	ppu.w = !ppu.w
+}
+
+func (ppu *Ppu) ReadPpuData() uint8 {
+	data := ppu.dataBuffer
+	ppu.dataBuffer = ppu.internalRead(ppu.v)
+
+	if !ppu.vramIncrement {
+		ppu.v++
+	} else {
+		ppu.v += 32
+	}
+
+	return data
+}
+
+func (ppu *Ppu) WritePpuData(data uint8) {
+	ppu.internalWrite(ppu.v, data)
+
+	if !ppu.vramIncrement {
+		ppu.v++
+	} else {
+		ppu.v += 32
 	}
 }
 

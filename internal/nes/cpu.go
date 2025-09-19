@@ -1,5 +1,17 @@
 package nes
 
+// status flag masks
+const (
+	carryFlagMask uint8 = 1 << iota
+	zeroFlagMask
+	intDisableFlagMask
+	decimalFlagMask
+	breakFlagMask
+	unusedFlagMask
+	overflowFlagMask
+	negativeFlagMask
+)
+
 const (
 	nmiVector           uint16 = 0xFFFA
 	resetVector         uint16 = 0xFFFC
@@ -7,18 +19,6 @@ const (
 	stackBase           uint16 = 0x0100
 	initialStackPointer uint8  = 0xFD
 	initialStatus       uint8  = 0x24
-)
-
-// status flag masks
-const (
-	flagCarry uint8 = 1 << iota
-	flagZero
-	flagIntDisable
-	flagDecimal
-	flagBreak
-	flagUnused
-	flagOverflow
-	flagNegative
 )
 
 type Cpu struct {
@@ -29,30 +29,29 @@ type Cpu struct {
 	pc     uint16
 	status uint8
 
-	bus         BusReadWriter
+	bus         *SysBus
 	cycleDelay  int
 	totalCycles int
 	handleIrq   bool
 	handleNmi   bool
 }
 
-func NewCpu(bus BusReadWriter) *Cpu {
+func NewCpu(bus *SysBus) *Cpu {
 	pcLow := bus.Read(resetVector)
 	pcHigh := bus.Read(resetVector + 1)
-	cpu := &Cpu{
-		a: 0, x: 0, y: 0,
-		sp:     initialStackPointer,
-		pc:     uint16(pcHigh)<<8 | uint16(pcLow),
-		status: initialStatus, bus: bus,
-		cycleDelay: 7, totalCycles: 0,
-		handleIrq: false, handleNmi: false,
+
+	return &Cpu{
+		sp:         initialStackPointer,
+		pc:         uint16(pcHigh)<<8 | uint16(pcLow),
+		status:     initialStatus,
+		bus:        bus,
+		cycleDelay: 7,
 	}
-	return cpu
 }
 
 func (cpu *Cpu) Clock() {
 	if cpu.cycleDelay <= 0 {
-		if cpu.handleIrq && cpu.status&flagIntDisable == 0 {
+		if cpu.handleIrq && cpu.status&intDisableFlagMask == 0 {
 			low := cpu.bus.Read(irqVector)
 			high := cpu.bus.Read(irqVector + 1)
 			address := uint16(high)<<8 | uint16(low)
@@ -85,12 +84,12 @@ func (cpu *Cpu) Nmi() {
 	cpu.handleNmi = true
 }
 
-func (cpu *Cpu) setFlag(flag uint8) {
-	cpu.status |= flag
-}
-
-func (cpu *Cpu) clearFlag(flag uint8) {
-	cpu.status &= ^flag
+func (cpu *Cpu) updateFlag(flag uint8, value bool) {
+	if value {
+		cpu.status |= flag
+	} else {
+		cpu.status &= ^flag
+	}
 }
 
 func (cpu *Cpu) testFlag(flag uint8) bool {
@@ -229,33 +228,14 @@ func (cpu *Cpu) adc(addrMode addressMode, pc uint16) {
 	}
 
 	result := uint16(cpu.a) + uint16(value)
-	if cpu.testFlag(flagCarry) {
+	if cpu.testFlag(carryFlagMask) {
 		result++
 	}
 
-	if result > 255 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	if uint8(result) == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if (uint8(result)^cpu.a)&(uint8(result)^value)&0x80 > 0 {
-		cpu.setFlag(flagOverflow)
-	} else {
-		cpu.clearFlag(flagOverflow)
-	}
-
-	if result&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(carryFlagMask, result > 255)
+	cpu.updateFlag(zeroFlagMask, result == 0)
+	cpu.updateFlag(overflowFlagMask, (uint8(result)^cpu.a)&(uint8(result)^value)&0x80 > 0)
+	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 
 	cpu.a = uint8(result)
 }
@@ -275,17 +255,8 @@ func (cpu *Cpu) and(addrMode addressMode, pc uint16) {
 
 	cpu.a &= value
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
 
 // arithmetic shift left
@@ -299,25 +270,11 @@ func (cpu *Cpu) asl(addrMode addressMode, pc uint16) {
 		value = cpu.bus.Read(address)
 	}
 
-	if value&0x80 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
+	cpu.updateFlag(carryFlagMask, value&0x80 > 0)
 	value <<= 1
 
-	if value == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if value&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, value == 0)
+	cpu.updateFlag(negativeFlagMask, value&0x80 > 0)
 
 	if addrMode == addrModeAccumulator {
 		cpu.a = value
@@ -328,7 +285,7 @@ func (cpu *Cpu) asl(addrMode addressMode, pc uint16) {
 
 // branch if carry set
 func (cpu *Cpu) bcs(addrMode addressMode, pc uint16) {
-	if !cpu.testFlag(flagCarry) {
+	if !cpu.testFlag(carryFlagMask) {
 		return
 	}
 	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
@@ -342,7 +299,7 @@ func (cpu *Cpu) bcs(addrMode addressMode, pc uint16) {
 
 // branch if carry clear
 func (cpu *Cpu) bcc(addrMode addressMode, pc uint16) {
-	if cpu.testFlag(flagCarry) {
+	if cpu.testFlag(carryFlagMask) {
 		return
 	}
 	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
@@ -360,28 +317,14 @@ func (cpu *Cpu) bit(addrMode addressMode, pc uint16) {
 	value := cpu.bus.Read(address)
 	result := cpu.a & value
 
-	if result == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if value&0x40 > 0 {
-		cpu.setFlag(flagOverflow)
-	} else {
-		cpu.clearFlag(flagOverflow)
-	}
-
-	if value&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, result == 0)
+	cpu.updateFlag(overflowFlagMask, value&0x40 > 0)
+	cpu.updateFlag(negativeFlagMask, value&0x80 > 0)
 }
 
 // branch if minus
 func (cpu *Cpu) bmi(addrMode addressMode, pc uint16) {
-	if !cpu.testFlag(flagNegative) {
+	if !cpu.testFlag(negativeFlagMask) {
 		return
 	}
 	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
@@ -395,7 +338,7 @@ func (cpu *Cpu) bmi(addrMode addressMode, pc uint16) {
 
 // branch if not equal
 func (cpu *Cpu) bne(addrMode addressMode, pc uint16) {
-	if cpu.testFlag(flagZero) {
+	if cpu.testFlag(zeroFlagMask) {
 		return
 	}
 	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
@@ -409,7 +352,7 @@ func (cpu *Cpu) bne(addrMode addressMode, pc uint16) {
 
 // branch if plus
 func (cpu *Cpu) bpl(addrMode addressMode, pc uint16) {
-	if cpu.testFlag(flagNegative) {
+	if cpu.testFlag(negativeFlagMask) {
 		return
 	}
 	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
@@ -428,7 +371,7 @@ func (cpu *Cpu) brk(addrMode addressMode, pc uint16) {
 	oldPcHigh := uint8(pc & 0xFF00 >> 8)
 	cpu.stackPush(oldPcHigh)
 	cpu.stackPush(oldPcLow)
-	cpu.stackPush(cpu.status | flagUnused | flagBreak)
+	cpu.stackPush(cpu.status | unusedFlagMask | breakFlagMask)
 	newPcLow := cpu.bus.Read(irqVector)
 	newPcHigh := cpu.bus.Read(irqVector + 1)
 	cpu.pc = uint16(newPcHigh)<<8 | uint16(newPcLow)
@@ -436,7 +379,7 @@ func (cpu *Cpu) brk(addrMode addressMode, pc uint16) {
 
 // branch if overflow clear
 func (cpu *Cpu) bvc(addrMode addressMode, pc uint16) {
-	if cpu.testFlag(flagOverflow) {
+	if cpu.testFlag(overflowFlagMask) {
 		return
 	}
 	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
@@ -450,7 +393,7 @@ func (cpu *Cpu) bvc(addrMode addressMode, pc uint16) {
 
 // branch if overflow set
 func (cpu *Cpu) bvs(addrMode addressMode, pc uint16) {
-	if !cpu.testFlag(flagOverflow) {
+	if !cpu.testFlag(overflowFlagMask) {
 		return
 	}
 	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
@@ -464,7 +407,7 @@ func (cpu *Cpu) bvs(addrMode addressMode, pc uint16) {
 
 // branch if equal
 func (cpu *Cpu) beq(addrMode addressMode, pc uint16) {
-	if !cpu.testFlag(flagZero) {
+	if !cpu.testFlag(zeroFlagMask) {
 		return
 	}
 	address, pageCrossed := cpu.mustGetAddress(addrMode, pc)
@@ -478,22 +421,22 @@ func (cpu *Cpu) beq(addrMode addressMode, pc uint16) {
 
 // clear carry
 func (cpu *Cpu) clc(addrMode addressMode, pc uint16) {
-	cpu.clearFlag(flagCarry)
+	cpu.updateFlag(carryFlagMask, false)
 }
 
 // clear decimal
 func (cpu *Cpu) cld(addrMode addressMode, pc uint16) {
-	cpu.clearFlag(flagDecimal)
+	cpu.updateFlag(decimalFlagMask, false)
 }
 
 // clear interrupt disable
 func (cpu *Cpu) cli(addrMode addressMode, pc uint16) {
-	cpu.clearFlag(flagIntDisable)
+	cpu.updateFlag(intDisableFlagMask, false)
 }
 
 // clear overflow
 func (cpu *Cpu) clv(addrMode addressMode, pc uint16) {
-	cpu.clearFlag(flagOverflow)
+	cpu.updateFlag(overflowFlagMask, false)
 }
 
 // compare a
@@ -511,23 +454,9 @@ func (cpu *Cpu) cmp(addrMode addressMode, pc uint16) {
 
 	result := cpu.a - value
 
-	if cpu.a >= value {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	if cpu.a == value {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if result&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(carryFlagMask, cpu.a >= value)
+	cpu.updateFlag(zeroFlagMask, cpu.a == value)
+	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 }
 
 // compare x
@@ -542,23 +471,9 @@ func (cpu *Cpu) cpx(addrMode addressMode, pc uint16) {
 
 	result := cpu.x - value
 
-	if cpu.x >= value {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	if cpu.x == value {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if result&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(carryFlagMask, cpu.x >= value)
+	cpu.updateFlag(zeroFlagMask, cpu.x == value)
+	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 }
 
 // compare y
@@ -573,23 +488,9 @@ func (cpu *Cpu) cpy(addrMode addressMode, pc uint16) {
 
 	result := cpu.y - value
 
-	if cpu.y >= value {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	if cpu.y == value {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if result&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(carryFlagMask, cpu.y >= value)
+	cpu.updateFlag(zeroFlagMask, cpu.y == value)
+	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 }
 
 // decrement memory and compare a
@@ -601,23 +502,9 @@ func (cpu *Cpu) dcp(addrMode addressMode, pc uint16) {
 
 	result := cpu.a - value
 
-	if cpu.a >= value {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	if cpu.a == value {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if result&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(carryFlagMask, cpu.a >= value)
+	cpu.updateFlag(zeroFlagMask, cpu.a == value)
+	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 }
 
 // decrement memory
@@ -627,51 +514,24 @@ func (cpu *Cpu) dec(addrMode addressMode, pc uint16) {
 	value--
 	cpu.bus.Write(address, value)
 
-	if value == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if value&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, value == 0)
+	cpu.updateFlag(negativeFlagMask, value&0x80 > 0)
 }
 
 // decrement x
 func (cpu *Cpu) dex(addrMode addressMode, pc uint16) {
 	cpu.x--
 
-	if cpu.x == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.x&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.x == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.x&0x80 > 0)
 }
 
 // decrement y
 func (cpu *Cpu) dey(addrMode addressMode, pc uint16) {
 	cpu.y--
 
-	if cpu.y == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.y&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.y == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.y&0x80 > 0)
 }
 
 // bitwise exclusive or
@@ -689,16 +549,8 @@ func (cpu *Cpu) eor(addrMode addressMode, pc uint16) {
 
 	cpu.a ^= value
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
 
 // increment memory
@@ -708,51 +560,24 @@ func (cpu *Cpu) inc(addrMode addressMode, pc uint16) {
 	value++
 	cpu.bus.Write(address, value)
 
-	if value == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if value&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, value == 0)
+	cpu.updateFlag(negativeFlagMask, value&0x80 > 0)
 }
 
 // increment x
 func (cpu *Cpu) inx(addrMode addressMode, pc uint16) {
 	cpu.x++
 
-	if cpu.x == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.x&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.x == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.x&0x80 > 0)
 }
 
 // increment y
 func (cpu *Cpu) iny(addrMode addressMode, pc uint16) {
 	cpu.y++
 
-	if cpu.y == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.y&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.y == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.y&0x80 > 0)
 }
 
 // increment memory and subtract with carry
@@ -763,33 +588,14 @@ func (cpu *Cpu) isb(addrMode addressMode, pc uint16) {
 	cpu.bus.Write(address, value)
 
 	result := int16(cpu.a) - int16(value)
-	if !cpu.testFlag(flagCarry) {
+	if !cpu.testFlag(carryFlagMask) {
 		result--
 	}
 
-	if result >= 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	if result == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if (uint8(result)^cpu.a)&(uint8(result)^^value)&0x80 > 0 {
-		cpu.setFlag(flagOverflow)
-	} else {
-		cpu.clearFlag(flagOverflow)
-	}
-
-	if result&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(carryFlagMask, result >= 0)
+	cpu.updateFlag(zeroFlagMask, result == 0)
+	cpu.updateFlag(overflowFlagMask, (uint8(result)^cpu.a)&(uint8(result)^^value)&0x80 > 0)
+	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 
 	cpu.a = uint8(result)
 }
@@ -822,17 +628,8 @@ func (cpu *Cpu) lax(addrMode addressMode, pc uint16) {
 	cpu.a = value
 	cpu.x = value
 
-	if value == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if value&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, value == 0)
+	cpu.updateFlag(negativeFlagMask, value&0x80 > 0)
 }
 
 // load a
@@ -850,17 +647,8 @@ func (cpu *Cpu) lda(addrMode addressMode, pc uint16) {
 
 	cpu.a = value
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
 
 // load x
@@ -878,17 +666,8 @@ func (cpu *Cpu) ldx(addrMode addressMode, pc uint16) {
 
 	cpu.x = value
 
-	if cpu.x == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.x&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.x == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.x&0x80 > 0)
 }
 
 // load y
@@ -906,17 +685,8 @@ func (cpu *Cpu) ldy(addrMode addressMode, pc uint16) {
 
 	cpu.y = value
 
-	if cpu.y == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.y&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.y == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.y&0x80 > 0)
 }
 
 // logical shift right
@@ -930,21 +700,11 @@ func (cpu *Cpu) lsr(addrMode addressMode, pc uint16) {
 		value = cpu.bus.Read(address)
 	}
 
-	if value&0x01 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
+	cpu.updateFlag(carryFlagMask, value&0x01 > 0)
 	value >>= 1
 
-	if value == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	cpu.clearFlag(flagNegative)
+	cpu.updateFlag(zeroFlagMask, value == 0)
+	cpu.updateFlag(negativeFlagMask, false)
 	if addrMode == addrModeAccumulator {
 		cpu.a = value
 	} else {
@@ -976,17 +736,8 @@ func (cpu *Cpu) ora(addrMode addressMode, pc uint16) {
 
 	cpu.a |= value
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
 
 // push a
@@ -996,31 +747,22 @@ func (cpu *Cpu) pha(addrMode addressMode, pc uint16) {
 
 // push processor status
 func (cpu *Cpu) php(addrMode addressMode, pc uint16) {
-	cpu.stackPush(cpu.status | flagUnused | flagBreak)
+	cpu.stackPush(cpu.status | unusedFlagMask | breakFlagMask)
 }
 
 // pull a
 func (cpu *Cpu) pla(addrMode addressMode, pc uint16) {
 	cpu.a = cpu.stackPop()
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
 
 // pull processor status
 func (cpu *Cpu) plp(addrMode addressMode, pc uint16) {
 	flags := cpu.stackPop()
 	cpu.status = flags & 0xCF
-	cpu.status |= flagUnused
+	cpu.status |= unusedFlagMask
 }
 
 // rotate left and bitwise and
@@ -1028,15 +770,10 @@ func (cpu *Cpu) rla(addrMode addressMode, pc uint16) {
 	address, _ := cpu.mustGetAddress(addrMode, pc)
 	value := cpu.bus.Read(address)
 
-	carry := cpu.testFlag(flagCarry)
-	if value&0x80 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
+	carry := cpu.testFlag(carryFlagMask)
+	cpu.updateFlag(carryFlagMask, value&0x80 > 0)
 
 	value <<= 1
-
 	if carry {
 		value |= 0x01
 	}
@@ -1045,17 +782,8 @@ func (cpu *Cpu) rla(addrMode addressMode, pc uint16) {
 
 	cpu.a &= value
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
 
 // rotate left
@@ -1069,30 +797,16 @@ func (cpu *Cpu) rol(addrMode addressMode, pc uint16) {
 		value = cpu.bus.Read(address)
 	}
 
-	carry := cpu.testFlag(flagCarry)
-	if value&0x80 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
+	carry := cpu.testFlag(carryFlagMask)
+	cpu.updateFlag(carryFlagMask, value&0x80 > 0)
 	value <<= 1
 
 	if carry {
 		value |= 0x01
 	}
 
-	if value == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if value&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, value == 0)
+	cpu.updateFlag(negativeFlagMask, value&0x80 > 0)
 
 	if addrMode == addrModeAccumulator {
 		cpu.a = value
@@ -1112,29 +826,16 @@ func (cpu *Cpu) ror(addrMode addressMode, pc uint16) {
 		value = cpu.bus.Read(address)
 	}
 
-	carry := cpu.testFlag(flagCarry)
-	if value&0x01 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
+	carry := cpu.testFlag(carryFlagMask)
+	cpu.updateFlag(carryFlagMask, value&0x01 > 0)
 
 	value >>= 1
 	if carry {
 		value |= 0x80
 	}
 
-	if value == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if value&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, value == 0)
+	cpu.updateFlag(negativeFlagMask, value&0x80 > 0)
 
 	if addrMode == addrModeAccumulator {
 		cpu.a = value
@@ -1148,12 +849,8 @@ func (cpu *Cpu) rra(addrMode addressMode, pc uint16) {
 	address, _ := cpu.mustGetAddress(addrMode, pc)
 	value := cpu.bus.Read(address)
 
-	carry := cpu.testFlag(flagCarry)
-	if value&0x01 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
+	carry := cpu.testFlag(carryFlagMask)
+	cpu.updateFlag(carryFlagMask, value&0x01 > 0)
 
 	value >>= 1
 	if carry {
@@ -1163,33 +860,14 @@ func (cpu *Cpu) rra(addrMode addressMode, pc uint16) {
 	cpu.bus.Write(address, value)
 
 	result := uint16(cpu.a) + uint16(value)
-	if cpu.testFlag(flagCarry) {
+	if cpu.testFlag(carryFlagMask) {
 		result++
 	}
 
-	if result > 255 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	if uint8(result) == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if (uint8(result)^cpu.a)&(uint8(result)^value)&0x80 > 0 {
-		cpu.setFlag(flagOverflow)
-	} else {
-		cpu.clearFlag(flagOverflow)
-	}
-
-	if result&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(carryFlagMask, result > 255)
+	cpu.updateFlag(zeroFlagMask, result == 0)
+	cpu.updateFlag(overflowFlagMask, (uint8(result)^cpu.a)&(uint8(result)^value)&0x80 > 0)
+	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 
 	cpu.a = uint8(result)
 }
@@ -1200,7 +878,7 @@ func (cpu *Cpu) rti(addrMode addressMode, pc uint16) {
 	low := cpu.stackPop()
 	high := cpu.stackPop()
 	cpu.status = flags & 0xCF
-	cpu.status |= flagUnused
+	cpu.status |= unusedFlagMask
 	cpu.pc = uint16(high)<<8 | uint16(low)
 }
 
@@ -1233,50 +911,31 @@ func (cpu *Cpu) sbc(addrMode addressMode, pc uint16) {
 	}
 
 	result := int16(cpu.a) - int16(value)
-	if !cpu.testFlag(flagCarry) {
+	if !cpu.testFlag(carryFlagMask) {
 		result--
 	}
 
-	if result >= 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
-	if result == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if (uint8(result)^cpu.a)&(uint8(result)^^value)&0x80 > 0 {
-		cpu.setFlag(flagOverflow)
-	} else {
-		cpu.clearFlag(flagOverflow)
-	}
-
-	if result&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(carryFlagMask, result >= 0)
+	cpu.updateFlag(zeroFlagMask, result == 0)
+	cpu.updateFlag(overflowFlagMask, (uint8(result)^cpu.a)&(uint8(result)^^value)&0x80 > 0)
+	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 
 	cpu.a = uint8(result)
 }
 
 // set carry
 func (cpu *Cpu) sec(addrMode addressMode, pc uint16) {
-	cpu.setFlag(flagCarry)
+	cpu.updateFlag(carryFlagMask, true)
 }
 
 // set decimal
 func (cpu *Cpu) sed(addrMode addressMode, pc uint16) {
-	cpu.setFlag(flagDecimal)
+	cpu.updateFlag(decimalFlagMask, true)
 }
 
 // set interrupt disable
 func (cpu *Cpu) sei(addrMode addressMode, pc uint16) {
-	cpu.setFlag(flagIntDisable)
+	cpu.updateFlag(intDisableFlagMask, true)
 }
 
 // arithmetic shift left and bitwise or
@@ -1284,29 +943,14 @@ func (cpu *Cpu) slo(addrMode addressMode, pc uint16) {
 	address, _ := cpu.mustGetAddress(addrMode, pc)
 	value := cpu.bus.Read(address)
 
-	if value&0x80 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
+	cpu.updateFlag(carryFlagMask, value&0x80 > 0)
 	value <<= 1
 
 	cpu.bus.Write(address, value)
-
 	cpu.a |= value
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
 
 // logical shift right and bitwise exclusive or
@@ -1314,27 +958,14 @@ func (cpu *Cpu) sre(addrMode addressMode, pc uint16) {
 	address, _ := cpu.mustGetAddress(addrMode, pc)
 	value := cpu.bus.Read(address)
 
-	if value&0x01 > 0 {
-		cpu.setFlag(flagCarry)
-	} else {
-		cpu.clearFlag(flagCarry)
-	}
-
+	cpu.updateFlag(carryFlagMask, value&0x01 > 0)
 	value >>= 1
 	cpu.bus.Write(address, value)
 
 	cpu.a ^= value
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
 
 // store a
@@ -1359,67 +990,32 @@ func (cpu *Cpu) sty(addrMode addressMode, pc uint16) {
 func (cpu *Cpu) tax(addrMode addressMode, pc uint16) {
 	cpu.x = cpu.a
 
-	if cpu.x == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.x&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.x == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.x&0x80 > 0)
 }
 
 // transfer a to y
 func (cpu *Cpu) tay(addrMode addressMode, pc uint16) {
 	cpu.y = cpu.a
 
-	if cpu.y == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.y&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.y == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.y&0x80 > 0)
 }
 
 // transfer stack pointer to x
 func (cpu *Cpu) tsx(addrMode addressMode, pc uint16) {
 	cpu.x = cpu.sp
 
-	if cpu.x == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-	if cpu.x&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.x == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.x&0x80 > 0)
 }
 
 // transfer x to a
 func (cpu *Cpu) txa(addrMode addressMode, pc uint16) {
 	cpu.a = cpu.x
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
 
 // transfer x to stack pointer
@@ -1431,15 +1027,6 @@ func (cpu *Cpu) txs(addrMode addressMode, pc uint16) {
 func (cpu *Cpu) tya(addrMode addressMode, pc uint16) {
 	cpu.a = cpu.y
 
-	if cpu.a == 0 {
-		cpu.setFlag(flagZero)
-	} else {
-		cpu.clearFlag(flagZero)
-	}
-
-	if cpu.a&0x80 > 0 {
-		cpu.setFlag(flagNegative)
-	} else {
-		cpu.clearFlag(flagNegative)
-	}
+	cpu.updateFlag(zeroFlagMask, cpu.a == 0)
+	cpu.updateFlag(negativeFlagMask, cpu.a&0x80 > 0)
 }
