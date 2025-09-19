@@ -1,21 +1,31 @@
 package nes
 
-const (
-	cpuRamSize int = 2048
-)
-
 // memory mapping
 const (
-	cpuRamAddr    uint16 = 0x0000
-	cpuRamMemSize uint16 = 2048
-	cartridgeAddr uint16 = 0x8000
+	cpuRamStartAddr    uint16 = 0x0000
+	cpuRamEndAddr      uint16 = 0x07FF
+	cpuRamSize         uint16 = cpuRamEndAddr - cpuRamStartAddr + 1
+	cartridgeStartAddr uint16 = 0x8000
+	cartridgeEndAddr   uint16 = 0xFFFF
+)
+
+// ppu registers
+const (
+	ppuCtrl   uint16 = 0x2000
+	ppuMask   uint16 = 0x2001
+	ppuStatus uint16 = 0x2002
+	oamAddr   uint16 = 0x2003
+	oamData   uint16 = 0x2004
+	ppuScroll uint16 = 0x2005
+	ppuAddr   uint16 = 0x2006
+	ppuData   uint16 = 0x2007
 )
 
 type System struct {
-	cpuRam    [cpuRamSize]uint8
-	cartridge *Cartridge
 	cpu       *cpu
 	ppu       *ppu
+	cpuRam    [cpuRamSize]uint8
+	cartridge *Cartridge
 }
 
 func NewSystem(cartridge *Cartridge) *System {
@@ -28,42 +38,43 @@ func NewSystem(cartridge *Cartridge) *System {
 }
 
 func (sys *System) FrameBuffer() []uint8 {
-	return sys.ppu.FrameBuffer
+	return sys.ppu.frameBuffer
 }
 
-func (sys *System) read(address uint16) uint8 {
+func (sys *System) read(addr uint16) uint8 {
 	switch {
-	case address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize:
-		return sys.cpuRam[address]
-	case sys.ppu != nil && address == PpuStatus:
-		return sys.ppu.ReadPpuStatus()
-	case sys.ppu != nil && address == OamData:
-		return sys.ppu.ReadOamData()
-	case sys.ppu != nil && address == PpuData:
-		return sys.ppu.ReadPpuData()
-	case address >= cartridgeAddr && sys.cartridge != nil:
-		return sys.cartridge.MustReadProgramData(address)
+	case addr >= cpuRamStartAddr && addr <= cpuRamEndAddr:
+		return sys.cpuRam[addr]
+	case addr == ppuStatus:
+		return sys.ppu.ReadPpuStatus(addr)
+	case addr == oamData:
+		return sys.ppu.ReadOamData(addr)
+	case addr == ppuData:
+		return sys.ppu.ReadPpuData(addr)
+	case sys.cartridge != nil && addr >= cartridgeStartAddr && addr <= cartridgeEndAddr:
+		return sys.cartridge.MustReadProgramData(addr)
+	default:
+		return 0
 	}
-	return 0x00
 }
 
-func (sys *System) write(address uint16, data uint8) {
+func (sys *System) write(addr uint16, data uint8) {
 	switch {
-	case address > cpuRamAddr && address < cpuRamAddr+cpuRamMemSize:
-		sys.cpuRam[address] = data
-	case sys.ppu != nil && address == PpuCtrl:
-		sys.ppu.WritePpuCtrl(data)
-	case sys.ppu != nil && address == PpuMask:
-		sys.ppu.WritePpuMask(data)
-	case sys.ppu != nil && address == OamAddr:
-		sys.ppu.WriteOamAddr(data)
-	case sys.ppu != nil && address == OamData:
-		sys.ppu.WriteOamData(data)
-	case sys.ppu != nil && address == PpuScroll:
-		sys.ppu.WritePpuScroll(data)
-	case sys.ppu != nil && address == PpuAddr:
-		sys.ppu.WritePpuAddr(data)
-	case sys.ppu != nil && address == PpuData:
-		sys.ppu.WritePpuData(data)
+	case addr >= cpuRamStartAddr && addr <= cpuRamEndAddr:
+		sys.cpuRam[addr] = data
+	case addr == ppuCtrl:
+		sys.ppu.WritePpuCtrl(addr, data)
+	case addr == ppuMask:
+		sys.ppu.WritePpuMask(addr, data)
+	case addr == oamAddr:
+		sys.ppu.WriteOamAddr(addr, data)
+	case addr == oamData:
+		sys.ppu.WriteOamData(addr, data)
+	case addr == ppuScroll:
+		sys.ppu.WritePpuScroll(addr, data)
+	case addr == ppuAddr:
+		sys.ppu.WritePpuAddr(addr, data)
+	case addr == ppuData:
+		sys.ppu.WritePpuData(addr, data)
 	}
 }
