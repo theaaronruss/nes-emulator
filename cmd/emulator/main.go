@@ -10,6 +10,7 @@ func run() {
 	windowConfig := opengl.WindowConfig{
 		Title:  "NES Emulator",
 		Bounds: pixel.R(0, 0, nes.FrameWidth*2, nes.FrameHeight*2),
+		VSync:  false,
 	}
 	window, err := opengl.NewWindow(windowConfig)
 	if err != nil {
@@ -19,10 +20,14 @@ func run() {
 	cartridge, _ := nes.NewCartridge("nestest.nes")
 	system := nes.NewSystem(cartridge)
 
+	for {
+		system.Clock()
+	}
+
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 
 	for !window.Closed() {
-		system.Clock()
+		// system.Clock()
 
 		canvas.SetPixels(system.FrameBuffer())
 

@@ -63,7 +63,7 @@ func (sys *System) read(addr uint16) uint8 {
 	case addr == ppuData:
 		return sys.ppu.readPpuData()
 	case sys.cartridge != nil && addr >= cartridgeStartAddr && addr <= cartridgeEndAddr:
-		return sys.cartridge.MustReadProgramData(addr)
+		return sys.cartridge.ReadProgramData(addr)
 	default:
 		return 0
 	}

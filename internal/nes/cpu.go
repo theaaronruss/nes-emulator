@@ -1,5 +1,7 @@
 package nes
 
+import "fmt"
+
 // status flag masks
 const (
 	carryFlagMask uint8 = 1 << iota
@@ -68,6 +70,11 @@ func (cpu *cpu) Clock() {
 		opcode := cpu.sys.read(cpu.pc)
 		instruction := opcodes[opcode]
 		currPc := cpu.pc
+
+		// Log CPU state before executing instruction
+		fmt.Printf("PC: $%04X | Instruction: %s | A: $%02X X: $%02X Y: $%02X SP: $%02X Status: %08b\n",
+			currPc, instruction.mnemonic, cpu.a, cpu.x, cpu.y, cpu.sp, cpu.status)
+
 		cpu.pc += uint16(instruction.bytes)
 		instruction.fn(cpu, instruction.addrMode, currPc)
 		cpu.cycleDelay += instruction.cycles
