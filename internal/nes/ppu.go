@@ -1,9 +1,10 @@
 package nes
 
 const (
-	FrameWidth     float64 = 256
-	FrameHeight    float64 = 240
-	paletteRamSize int     = 32
+	FrameWidth       float64 = 256
+	FrameHeight      float64 = 240
+	paletteRamSize   int     = 32
+	nameTableRamSize int     = 2048
 )
 
 type ppu struct {
@@ -17,8 +18,9 @@ type ppu struct {
 	w          bool
 	vblankFlag bool
 
-	readBuffer uint8
-	paletteRam [paletteRamSize]uint8
+	readBuffer   uint8
+	paletteRam   [paletteRamSize]uint8
+	nameTableRam [nameTableRamSize]uint8
 }
 
 func NewPpu(sys *System) *ppu {
@@ -29,10 +31,8 @@ func NewPpu(sys *System) *ppu {
 }
 
 func (ppu *ppu) Clock() {
-	// fmt.Printf("Cycle: %d Scan Line: %d\n", ppu.currCycle, ppu.currScanLine)
-
 	if ppu.currCycle < 256 && ppu.currScanLine < 240 {
-		// TODO: render
+		ppu.renderBackground()
 	} else if ppu.currCycle == 1 && ppu.currScanLine == 241 {
 		ppu.vblankFlag = true
 		ppu.sys.cpu.Nmi()
@@ -48,6 +48,9 @@ func (ppu *ppu) Clock() {
 	if ppu.currScanLine == 262 {
 		ppu.currScanLine = 0
 	}
+}
+
+func (ppu *ppu) renderBackground() {
 }
 
 func (ppu *ppu) writePpuCtrl(data uint8) {
@@ -101,6 +104,10 @@ func (ppu *ppu) writePpuData(data uint8) {
 
 func (ppu *ppu) internalRead(addr uint16) uint8 {
 	switch {
+	case addr >= 0x2000 && addr <= 0x2FFF:
+		// name table ram
+		nameTableAddr := (addr - 0x2000) % uint16(nameTableRamSize)
+		return ppu.nameTableRam[nameTableAddr]
 	case addr >= 0x3F00 && addr <= 0x3FFF:
 		// palette ram
 		paletteAddr := (addr - 0x3F00) % uint16(paletteRamSize)
@@ -112,6 +119,10 @@ func (ppu *ppu) internalRead(addr uint16) uint8 {
 
 func (ppu *ppu) internalWrite(addr uint16, data uint8) {
 	switch {
+	case addr >= 0x2000 && addr <= 0x2FFF:
+		// name table ram
+		nameTableAddr := (addr - 0x2000) % uint16(nameTableRamSize)
+		ppu.nameTableRam[nameTableAddr] = data
 	case addr >= 0x3F00 && addr <= 0x3FFF:
 		// palette ram
 		paletteAddr := (addr - 0x3F00) % uint16(paletteRamSize)

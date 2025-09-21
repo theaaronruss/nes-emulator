@@ -54,7 +54,7 @@ func (sys *System) Clock() {
 
 func (sys *System) read(addr uint16) uint8 {
 	switch {
-	case addr >= cpuRamStartAddr && addr <= cpuRamEndAddr:
+	case addr <= 0x07FF:
 		return sys.cpuRam[addr]
 	case addr == ppuStatus:
 		return sys.ppu.readPpuStatus()
@@ -62,7 +62,7 @@ func (sys *System) read(addr uint16) uint8 {
 		return sys.ppu.readOamData()
 	case addr == ppuData:
 		return sys.ppu.readPpuData()
-	case sys.cartridge != nil && addr >= cartridgeStartAddr && addr <= cartridgeEndAddr:
+	case sys.cartridge != nil && addr >= 0x8000:
 		return sys.cartridge.ReadProgramData(addr)
 	default:
 		return 0

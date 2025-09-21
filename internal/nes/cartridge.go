@@ -2,7 +2,6 @@ package nes
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 )
@@ -40,17 +39,12 @@ func NewCartridge(filePath string) (*Cartridge, error) {
 	return cartridge, nil
 }
 
-func (cartridge *Cartridge) ReadProgramData(address uint16) uint8 {
-	return cartridge.programData[address%uint16(programDataSize)]
+func (cartridge *Cartridge) ReadProgramData(addr uint16) uint8 {
+	return cartridge.programData[addr%uint16(programDataSize)]
 }
 
-func (cartridge *Cartridge) MustReadCharacterData(address uint16) uint8 {
-	if address >= uint16(characterDataSize) {
-		error := fmt.Sprintf("game cartridge character data invalid address: 0x%X",
-			address)
-		panic(error)
-	}
-	return cartridge.characterData[address%uint16(characterDataSize)]
+func (cartridge *Cartridge) ReadCharacterData(addr uint16) uint8 {
+	return cartridge.characterData[addr%uint16(characterDataSize)]
 }
 
 func (cartridge *Cartridge) parseProgramData(file *os.File) error {
