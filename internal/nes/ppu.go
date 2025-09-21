@@ -1,7 +1,5 @@
 package nes
 
-import "fmt"
-
 const (
 	FrameWidth     float64 = 256
 	FrameHeight    float64 = 240
@@ -31,7 +29,7 @@ func NewPpu(sys *System) *ppu {
 }
 
 func (ppu *ppu) Clock() {
-	fmt.Printf("Cycle: %d Scan Line: %d\n", ppu.currCycle, ppu.currScanLine)
+	// fmt.Printf("Cycle: %d Scan Line: %d\n", ppu.currCycle, ppu.currScanLine)
 
 	if ppu.currCycle < 256 && ppu.currScanLine < 240 {
 		// TODO: render

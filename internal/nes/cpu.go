@@ -1,6 +1,9 @@
 package nes
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // status flag masks
 const (
@@ -54,12 +57,26 @@ func NewCpu(sys *System) *cpu {
 func (cpu *cpu) Clock() {
 	if cpu.cycleDelay <= 0 {
 		if cpu.handleIrq && cpu.status&intDisableFlagMask == 0 {
-			low := cpu.sys.read(irqVector)
-			high := cpu.sys.read(irqVector + 1)
-			address := uint16(high)<<8 | uint16(low)
+			cpu.pc += 2
+			oldAddrLow := uint8(cpu.pc)
+			oldAddrHigh := uint8(cpu.pc & 0xFF00 >> 8)
+			cpu.stackPush(oldAddrHigh)
+			cpu.stackPush(oldAddrLow)
+			cpu.stackPush(cpu.status & ^breakFlagMask)
+			cpu.updateFlag(intDisableFlagMask, true)
+			newAddrLow := cpu.sys.read(irqVector)
+			newAddrHigh := cpu.sys.read(irqVector + 1)
+			address := uint16(newAddrHigh)<<8 | uint16(newAddrLow)
 			cpu.pc = address
 			cpu.handleIrq = false
 		} else if cpu.handleNmi {
+			cpu.pc += 2
+			oldAddrLow := uint8(cpu.pc)
+			oldAddrHigh := uint8(cpu.pc & 0xFF00 >> 8)
+			cpu.stackPush(oldAddrHigh)
+			cpu.stackPush(oldAddrLow)
+			cpu.stackPush(cpu.status & ^breakFlagMask)
+			cpu.updateFlag(intDisableFlagMask, true)
 			low := cpu.sys.read(nmiVector)
 			high := cpu.sys.read(nmiVector + 1)
 			address := uint16(high)<<8 | uint16(low)
@@ -70,17 +87,22 @@ func (cpu *cpu) Clock() {
 		opcode := cpu.sys.read(cpu.pc)
 		instruction := opcodes[opcode]
 		currPc := cpu.pc
-
-		// Log CPU state before executing instruction
-		fmt.Printf("PC: $%04X | Instruction: %s | A: $%02X X: $%02X Y: $%02X SP: $%02X Status: %08b\n",
-			currPc, instruction.mnemonic, cpu.a, cpu.x, cpu.y, cpu.sp, cpu.status)
-
 		cpu.pc += uint16(instruction.bytes)
 		instruction.fn(cpu, instruction.addrMode, currPc)
 		cpu.cycleDelay += instruction.cycles
 	}
 	cpu.cycleDelay--
 	cpu.totalCycles++
+}
+
+func (cpu *cpu) logInstruction(pc uint16, instr *instruction) {
+	var byteStr strings.Builder
+	for i := range instr.bytes {
+		nextByte := fmt.Sprintf("%02X ", cpu.sys.read(cpu.pc+uint16(i)))
+		byteStr.WriteString(nextByte)
+	}
+	fmt.Printf("%04X  %-9s %-4s A:%02X X:%02X Y:%02X P:%02X SP:%02X\n", pc,
+		byteStr.String(), instr.mnemonic, cpu.a, cpu.x, cpu.y, cpu.status, cpu.sp)
 }
 
 func (cpu *cpu) Irq() {
@@ -240,7 +262,7 @@ func (cpu *cpu) adc(addrMode addressMode, pc uint16) {
 	}
 
 	cpu.updateFlag(carryFlagMask, result > 255)
-	cpu.updateFlag(zeroFlagMask, result == 0)
+	cpu.updateFlag(zeroFlagMask, uint8(result) == 0)
 	cpu.updateFlag(overflowFlagMask, (uint8(result)^cpu.a)&(uint8(result)^value)&0x80 > 0)
 	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 
@@ -872,7 +894,7 @@ func (cpu *cpu) rra(addrMode addressMode, pc uint16) {
 	}
 
 	cpu.updateFlag(carryFlagMask, result > 255)
-	cpu.updateFlag(zeroFlagMask, result == 0)
+	cpu.updateFlag(zeroFlagMask, uint8(result) == 0)
 	cpu.updateFlag(overflowFlagMask, (uint8(result)^cpu.a)&(uint8(result)^value)&0x80 > 0)
 	cpu.updateFlag(negativeFlagMask, result&0x80 > 0)
 

@@ -17,17 +17,16 @@ func run() {
 		panic(err)
 	}
 
-	cartridge, _ := nes.NewCartridge("nestest.nes")
-	system := nes.NewSystem(cartridge)
-
-	for {
-		system.Clock()
+	cartridge, err := nes.NewCartridge("nestest.nes")
+	if err != nil {
+		panic(err.Error())
 	}
+	system := nes.NewSystem(cartridge)
 
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 
 	for !window.Closed() {
-		// system.Clock()
+		system.Clock()
 
 		canvas.SetPixels(system.FrameBuffer())
 
