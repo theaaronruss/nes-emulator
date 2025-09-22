@@ -14,11 +14,13 @@ type ppu struct {
 	currCycle    int
 	currScanLine int
 
-	v             uint16
-	t             uint16
-	w             bool
-	vblankFlag    bool
-	incrementFlag bool
+	v          uint16
+	t          uint16
+	w          bool
+	vblankFlag bool
+
+	vblankCtrl    bool
+	incrementCtrl bool
 
 	readBuffer   uint8
 	paletteRam   [paletteRamSize]uint8
@@ -29,13 +31,14 @@ func NewPpu(sys *System) *ppu {
 	return &ppu{
 		sys:         sys,
 		frameBuffer: make([]uint8, int(FrameWidth*FrameHeight*4)),
+		vblankCtrl:  true,
 	}
 }
 
 func (ppu *ppu) Clock() {
 	ppu.renderBackground()
 
-	if ppu.currCycle == 1 && ppu.currScanLine == 241 {
+	if ppu.currCycle == 1 && ppu.currScanLine == 241 && ppu.vblankCtrl {
 		ppu.vblankFlag = true
 		ppu.sys.cpu.Nmi()
 	} else if ppu.currCycle == 1 && ppu.currScanLine == 261 {
@@ -65,12 +68,33 @@ func (ppu *ppu) renderBackground() {
 	charY := ppu.currScanLine % 8
 	value := ppu.characterPixel(int(tile), charX, charY)
 
-	color := ppu.characterColor(0, int(value))
+	palette := ppu.tilePalette(charX, charY)
+	color := ppu.characterColor(palette, int(value))
 	frameBufferIndex := (ppu.currScanLine*int(FrameWidth) + ppu.currCycle) * 4
 	ppu.frameBuffer[frameBufferIndex] = color.r
 	ppu.frameBuffer[frameBufferIndex+1] = color.g
 	ppu.frameBuffer[frameBufferIndex+2] = color.b
 	ppu.frameBuffer[frameBufferIndex+3] = 0xFF
+}
+
+func (ppu *ppu) tilePalette(charX int, charY int) int {
+	attrX := charX / 8
+	attrY := charY / 8
+	attrIndex := 0x2000 + 960
+	attrIndex += attrY*8 + attrX
+	attr := ppu.internalRead(uint16(attrIndex))
+
+	tileX := charX % 2
+	tileY := charY % 2
+	if tileX == 0 && tileY == 0 {
+		return int(attr & 0x03)
+	} else if tileX == 1 && tileY == 0 {
+		return int((attr >> 2) & 0x03)
+	} else if tileX == 0 && tileY == 1 {
+		return int((attr >> 4) & 0x03)
+	} else {
+		return int((attr >> 6) & 0x03)
+	}
 }
 
 func (ppu *ppu) characterPixel(char int, charX int, charY int) uint8 {
@@ -92,10 +116,17 @@ func (ppu *ppu) characterColor(palette int, index int) *color {
 }
 
 func (ppu *ppu) writePpuCtrl(data uint8) {
+	if data&0x80 > 0 {
+		if !ppu.vblankCtrl && ppu.vblankFlag {
+			ppu.sys.cpu.Nmi()
+		}
+		ppu.vblankCtrl = true
+	}
+
 	if data&0x04 > 0 {
-		ppu.incrementFlag = true
+		ppu.incrementCtrl = true
 	} else {
-		ppu.incrementFlag = false
+		ppu.incrementCtrl = false
 	}
 }
 
@@ -136,7 +167,7 @@ func (ppu *ppu) writePpuAddr(data uint8) {
 func (ppu *ppu) readPpuData() uint8 {
 	data := ppu.readBuffer
 	ppu.readBuffer = ppu.internalRead(ppu.v)
-	if !ppu.incrementFlag {
+	if !ppu.incrementCtrl {
 		ppu.v++
 	} else {
 		ppu.v += 32
@@ -146,7 +177,7 @@ func (ppu *ppu) readPpuData() uint8 {
 
 func (ppu *ppu) writePpuData(data uint8) {
 	ppu.internalWrite(ppu.v, data)
-	if !ppu.incrementFlag {
+	if !ppu.incrementCtrl {
 		ppu.v++
 	} else {
 		ppu.v += 32
