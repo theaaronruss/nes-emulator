@@ -43,12 +43,14 @@ func (sys *System) FrameBuffer() []uint8 {
 	return sys.ppu.frameBuffer
 }
 
-func (sys *System) Clock() {
-	sys.ppu.Clock()
-	sys.ppuClocks++
-	if sys.ppuClocks >= 3 {
-		sys.ppuClocks = 0
-		sys.cpu.Clock()
+func (sys *System) ClockFrame() {
+	for range clocksPerFrame {
+		sys.ppu.Clock()
+		sys.ppuClocks++
+		if sys.ppuClocks >= 3 {
+			sys.ppuClocks = 0
+			sys.cpu.Clock()
+		}
 	}
 }
 

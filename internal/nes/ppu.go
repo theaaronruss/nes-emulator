@@ -3,6 +3,7 @@ package nes
 const (
 	FrameWidth       float64 = 256
 	FrameHeight      float64 = 240
+	clocksPerFrame   int     = 341 * 262
 	paletteRamSize   int     = 32
 	nameTableRamSize int     = 2048
 )
@@ -31,9 +32,9 @@ func NewPpu(sys *System) *ppu {
 }
 
 func (ppu *ppu) Clock() {
-	if ppu.currCycle < 256 && ppu.currScanLine < 240 {
-		ppu.renderBackground()
-	} else if ppu.currCycle == 1 && ppu.currScanLine == 241 {
+	ppu.renderBackground()
+
+	if ppu.currCycle == 1 && ppu.currScanLine == 241 {
 		ppu.vblankFlag = true
 		ppu.sys.cpu.Nmi()
 	} else if ppu.currCycle == 1 && ppu.currScanLine == 261 {
@@ -51,6 +52,42 @@ func (ppu *ppu) Clock() {
 }
 
 func (ppu *ppu) renderBackground() {
+	if ppu.currCycle >= 256 || ppu.currScanLine >= 240 {
+		return
+	}
+	tileX := ppu.currCycle / 8
+	tileY := ppu.currScanLine / 8
+	nameTableIndex := tileY*32 + tileX
+	tile := ppu.nameTableRam[nameTableIndex]
+
+	charX := ppu.currCycle % 8
+	charY := ppu.currScanLine % 8
+	value := ppu.characterPixel(int(tile), charX, charY)
+
+	color := ppu.characterColor(0, int(value))
+	frameBufferIndex := (ppu.currScanLine*int(FrameWidth) + ppu.currCycle) * 4
+	ppu.frameBuffer[frameBufferIndex] = color.r
+	ppu.frameBuffer[frameBufferIndex+1] = color.g
+	ppu.frameBuffer[frameBufferIndex+2] = color.b
+	ppu.frameBuffer[frameBufferIndex+3] = 0xFF
+}
+
+func (ppu *ppu) characterPixel(char int, charX int, charY int) uint8 {
+	index := uint16(char*16 + charY)
+	plane1 := ppu.internalRead(index)
+	plane2 := ppu.internalRead(index + 8)
+	plane1 >>= 7 - charX
+	plane2 >>= 7 - charX
+	plane1 &= 0x01
+	plane2 &= 0x01
+	value := (plane2 << 1) | plane1
+	return value
+}
+
+func (ppu *ppu) characterColor(palette int, index int) *color {
+	paletteIndex := palette*4 + index
+	colorIndex := ppu.paletteRam[paletteIndex]
+	return &colors[colorIndex]
 }
 
 func (ppu *ppu) writePpuCtrl(data uint8) {
@@ -104,6 +141,9 @@ func (ppu *ppu) writePpuData(data uint8) {
 
 func (ppu *ppu) internalRead(addr uint16) uint8 {
 	switch {
+	case addr <= 0x1FFF:
+		// character data
+		return ppu.sys.cartridge.ReadCharacterData(addr)
 	case addr >= 0x2000 && addr <= 0x2FFF:
 		// name table ram
 		nameTableAddr := (addr - 0x2000) % uint16(nameTableRamSize)

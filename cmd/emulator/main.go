@@ -26,7 +26,7 @@ func run() {
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 
 	for !window.Closed() {
-		system.Clock()
+		system.ClockFrame()
 
 		canvas.SetPixels(system.FrameBuffer())
 
