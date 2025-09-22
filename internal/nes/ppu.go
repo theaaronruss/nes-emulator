@@ -14,10 +14,11 @@ type ppu struct {
 	currCycle    int
 	currScanLine int
 
-	v          uint16
-	t          uint16
-	w          bool
-	vblankFlag bool
+	v             uint16
+	t             uint16
+	w             bool
+	vblankFlag    bool
+	incrementFlag bool
 
 	readBuffer   uint8
 	paletteRam   [paletteRamSize]uint8
@@ -91,6 +92,11 @@ func (ppu *ppu) characterColor(palette int, index int) *color {
 }
 
 func (ppu *ppu) writePpuCtrl(data uint8) {
+	if data&0x04 > 0 {
+		ppu.incrementFlag = true
+	} else {
+		ppu.incrementFlag = false
+	}
 }
 
 func (ppu *ppu) writePpuMask(data uint8) {
@@ -130,13 +136,21 @@ func (ppu *ppu) writePpuAddr(data uint8) {
 func (ppu *ppu) readPpuData() uint8 {
 	data := ppu.readBuffer
 	ppu.readBuffer = ppu.internalRead(ppu.v)
-	ppu.v++
+	if !ppu.incrementFlag {
+		ppu.v++
+	} else {
+		ppu.v += 32
+	}
 	return data
 }
 
 func (ppu *ppu) writePpuData(data uint8) {
 	ppu.internalWrite(ppu.v, data)
-	ppu.v++
+	if !ppu.incrementFlag {
+		ppu.v++
+	} else {
+		ppu.v += 32
+	}
 }
 
 func (ppu *ppu) internalRead(addr uint16) uint8 {
