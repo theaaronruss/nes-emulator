@@ -21,7 +21,7 @@ func run() {
 	if err != nil {
 		panic(err.Error())
 	}
-	system := nes.NewSystem(cartridge)
+	system := nes.NewSystem(window, cartridge)
 
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 
