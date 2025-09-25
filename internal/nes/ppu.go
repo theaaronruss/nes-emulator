@@ -6,6 +6,11 @@ const (
 	clocksPerFrame   int     = 341 * 262
 	paletteRamSize   int     = 32
 	nameTableRamSize int     = 2048
+	nameTableWidth   int     = 32
+	nameTableHeight  int     = 30
+	attrTableWidth   int     = 8
+	attrTableOffset  int     = 960
+	tileSize         int     = 8
 )
 
 type ppu struct {
@@ -20,7 +25,7 @@ type ppu struct {
 	vblankFlag bool
 
 	vblankCtrl    bool
-	incrementCtrl bool
+	vramIncrement uint16
 
 	readBuffer   uint8
 	paletteRam   [paletteRamSize]uint8
@@ -29,14 +34,17 @@ type ppu struct {
 
 func NewPpu(sys *System) *ppu {
 	return &ppu{
-		sys:         sys,
-		frameBuffer: make([]uint8, int(FrameWidth*FrameHeight*4)),
-		vblankCtrl:  true,
+		sys:           sys,
+		frameBuffer:   make([]uint8, int(FrameWidth*FrameHeight*4)),
+		vblankCtrl:    true,
+		vramIncrement: 1,
 	}
 }
 
 func (ppu *ppu) Clock() {
-	ppu.renderBackground()
+	if ppu.currCycle < 256 && ppu.currScanLine < 240 {
+		ppu.renderBackground()
+	}
 
 	if ppu.currCycle == 1 && ppu.currScanLine == 241 && ppu.vblankCtrl {
 		ppu.vblankFlag = true
@@ -59,17 +67,13 @@ func (ppu *ppu) renderBackground() {
 	if ppu.currCycle >= 256 || ppu.currScanLine >= 240 {
 		return
 	}
+
 	tileX := ppu.currCycle / 8
 	tileY := ppu.currScanLine / 8
-	nameTableIndex := tileY*32 + tileX
-	tile := ppu.nameTableRam[nameTableIndex]
+	tileId := ppu.getTileId(tileX, tileY)
+	attrEntry := ppu.getPaletteNum(tileX, tileY)
+	color := ppu.getColorFromPalette(tileId, attrEntry)
 
-	charX := ppu.currCycle % 8
-	charY := ppu.currScanLine % 8
-	value := ppu.characterPixel(int(tile), charX, charY)
-
-	palette := ppu.tilePalette(charX, charY)
-	color := ppu.characterColor(palette, int(value))
 	frameBufferIndex := (ppu.currScanLine*int(FrameWidth) + ppu.currCycle) * 4
 	ppu.frameBuffer[frameBufferIndex] = color.r
 	ppu.frameBuffer[frameBufferIndex+1] = color.g
@@ -77,41 +81,58 @@ func (ppu *ppu) renderBackground() {
 	ppu.frameBuffer[frameBufferIndex+3] = 0xFF
 }
 
-func (ppu *ppu) tilePalette(charX int, charY int) int {
-	attrX := charX / 8
-	attrY := charY / 8
-	attrIndex := 0x2000 + 960
-	attrIndex += attrY*8 + attrX
-	attr := ppu.internalRead(uint16(attrIndex))
-
-	tileX := charX % 2
-	tileY := charY % 2
-	if tileX == 0 && tileY == 0 {
-		return int(attr & 0x03)
-	} else if tileX == 1 && tileY == 0 {
-		return int((attr >> 2) & 0x03)
-	} else if tileX == 0 && tileY == 1 {
-		return int((attr >> 4) & 0x03)
-	} else {
-		return int((attr >> 6) & 0x03)
+func (ppu *ppu) getTileId(tileX int, tileY int) uint8 {
+	if tileX < 0 || tileX >= nameTableWidth ||
+		tileY < 0 || tileY >= nameTableHeight {
+		return 0
 	}
+
+	nameTableIndex := tileY*nameTableWidth + tileX
+	return ppu.nameTableRam[nameTableIndex]
 }
 
-func (ppu *ppu) characterPixel(char int, charX int, charY int) uint8 {
-	index := uint16(char*16 + charY)
-	plane1 := ppu.internalRead(index)
-	plane2 := ppu.internalRead(index + 8)
-	plane1 >>= 7 - charX
-	plane2 >>= 7 - charX
-	plane1 &= 0x01
-	plane2 &= 0x01
-	value := (plane2 << 1) | plane1
-	return value
+func (ppu *ppu) getPaletteNum(tileX int, tileY int) uint8 {
+	if tileX < 0 || tileX >= nameTableWidth ||
+		tileY < 0 || tileY >= nameTableHeight {
+		return 0
+	}
+
+	attrX := tileX / 4
+	attrY := tileY / 4
+	attrIndex := attrY*attrTableWidth + attrX
+	attrEntry := ppu.nameTableRam[attrTableOffset+attrIndex]
+
+	quadX := attrX % 2
+	quadY := attrY % 2
+	switch {
+	case quadX == 0 && quadY == 0:
+		return attrEntry & 0x03
+	case quadX == 1 && quadY == 0:
+		return (attrEntry >> 2) & 0x03
+	case quadX == 0 && quadY == 1:
+		return (attrEntry >> 4) & 0x03
+	case quadX == 1 && quadY == 1:
+		return (attrEntry >> 6) & 0x03
+	}
+	return 0
 }
 
-func (ppu *ppu) characterColor(palette int, index int) *color {
-	paletteIndex := palette*4 + index
-	colorIndex := ppu.paletteRam[paletteIndex]
+func (ppu *ppu) getColorFromPalette(tileIndex uint8, attrEntry uint8) *color {
+	tileX := ppu.currCycle % tileSize
+	tileY := ppu.currScanLine % tileSize
+
+	patternAddr := (uint16(tileIndex) * 16) + uint16(tileY)
+	low := ppu.sys.cartridge.ReadCharacterData(patternAddr)
+	high := ppu.sys.cartridge.ReadCharacterData(patternAddr + 8)
+
+	shift := 7 - tileX
+	lowBit := (low >> shift) & 0x01
+	highBit := (high >> shift) & 0x01
+	pixel := uint16((highBit << 1) | lowBit)
+
+	paletteNum := attrEntry & 0x03
+	paletteAddr := 0x3F00 + uint16(paletteNum)*4 + pixel
+	colorIndex := ppu.internalRead(paletteAddr) & 0x3F
 	return &colors[colorIndex]
 }
 
@@ -124,9 +145,9 @@ func (ppu *ppu) writePpuCtrl(data uint8) {
 	}
 
 	if data&0x04 > 0 {
-		ppu.incrementCtrl = true
+		ppu.vramIncrement = 32
 	} else {
-		ppu.incrementCtrl = false
+		ppu.vramIncrement = 1
 	}
 }
 
@@ -134,6 +155,7 @@ func (ppu *ppu) writePpuMask(data uint8) {
 }
 
 func (ppu *ppu) readPpuStatus() uint8 {
+	ppu.w = false
 	if ppu.vblankFlag {
 		return 0x80
 	} else {
@@ -167,21 +189,13 @@ func (ppu *ppu) writePpuAddr(data uint8) {
 func (ppu *ppu) readPpuData() uint8 {
 	data := ppu.readBuffer
 	ppu.readBuffer = ppu.internalRead(ppu.v)
-	if !ppu.incrementCtrl {
-		ppu.v++
-	} else {
-		ppu.v += 32
-	}
+	ppu.v += ppu.vramIncrement
 	return data
 }
 
 func (ppu *ppu) writePpuData(data uint8) {
 	ppu.internalWrite(ppu.v, data)
-	if !ppu.incrementCtrl {
-		ppu.v++
-	} else {
-		ppu.v += 32
-	}
+	ppu.v += ppu.vramIncrement
 }
 
 func (ppu *ppu) internalRead(addr uint16) uint8 {
