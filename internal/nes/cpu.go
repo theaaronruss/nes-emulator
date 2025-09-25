@@ -56,32 +56,32 @@ func NewCpu(sys *System) *cpu {
 
 func (cpu *cpu) Clock() {
 	if cpu.cycleDelay <= 0 {
-		if cpu.handleIrq && cpu.status&intDisableFlagMask == 0 {
-			cpu.pc += 2
+		if cpu.handleNmi {
 			oldAddrLow := uint8(cpu.pc)
 			oldAddrHigh := uint8(cpu.pc & 0xFF00 >> 8)
 			cpu.stackPush(oldAddrHigh)
 			cpu.stackPush(oldAddrLow)
-			cpu.stackPush(cpu.status & ^breakFlagMask)
-			cpu.updateFlag(intDisableFlagMask, true)
-			newAddrLow := cpu.sys.read(irqVector)
-			newAddrHigh := cpu.sys.read(irqVector + 1)
-			address := uint16(newAddrHigh)<<8 | uint16(newAddrLow)
-			cpu.pc = address
-			cpu.handleIrq = false
-		} else if cpu.handleNmi {
-			cpu.pc += 2
-			oldAddrLow := uint8(cpu.pc)
-			oldAddrHigh := uint8(cpu.pc & 0xFF00 >> 8)
-			cpu.stackPush(oldAddrHigh)
-			cpu.stackPush(oldAddrLow)
-			cpu.stackPush(cpu.status & ^breakFlagMask)
+			cpu.stackPush(cpu.status & ^breakFlagMask | unusedFlagMask)
 			cpu.updateFlag(intDisableFlagMask, true)
 			low := cpu.sys.read(nmiVector)
 			high := cpu.sys.read(nmiVector + 1)
 			address := uint16(high)<<8 | uint16(low)
 			cpu.pc = address
 			cpu.handleNmi = false
+			cpu.cycleDelay += 7
+		} else if cpu.handleIrq && cpu.status&intDisableFlagMask == 0 {
+			oldAddrLow := uint8(cpu.pc)
+			oldAddrHigh := uint8(cpu.pc & 0xFF00 >> 8)
+			cpu.stackPush(oldAddrHigh)
+			cpu.stackPush(oldAddrLow)
+			cpu.stackPush(cpu.status & ^breakFlagMask | unusedFlagMask)
+			cpu.updateFlag(intDisableFlagMask, true)
+			newAddrLow := cpu.sys.read(irqVector)
+			newAddrHigh := cpu.sys.read(irqVector + 1)
+			address := uint16(newAddrHigh)<<8 | uint16(newAddrLow)
+			cpu.pc = address
+			cpu.handleIrq = false
+			cpu.cycleDelay += 7
 		}
 
 		opcode := cpu.sys.read(cpu.pc)
