@@ -12,10 +12,11 @@ type ppu struct {
 	cycle       int
 	scanLine    int
 
-	v          uint16
-	t          uint16
-	w          bool
-	vblankFlag bool
+	v             uint16
+	t             uint16
+	w             bool
+	vblankFlag    bool
+	bgTableOffset uint16
 
 	vblankCtrl    bool
 	vramIncrement uint16
@@ -29,6 +30,7 @@ func NewPpu(sys *System) *ppu {
 	return &ppu{
 		sys:           sys,
 		frameBuffer:   make([]uint8, int(FrameWidth*FrameHeight*4)),
+		bgTableOffset: 0,
 		vblankCtrl:    true,
 		vramIncrement: 1,
 	}
@@ -112,7 +114,7 @@ func (ppu *ppu) getColorFromPalette(tileIndex uint8, attr uint8) *color {
 	tileX := ppu.cycle % 8
 	tileY := ppu.scanLine % 8
 
-	patternAddr := (uint16(tileIndex) * 16) + uint16(tileY)
+	patternAddr := (uint16(tileIndex) * 16) + uint16(tileY) + ppu.bgTableOffset
 	low := ppu.sys.cartridge.ReadCharacterData(patternAddr)
 	high := ppu.sys.cartridge.ReadCharacterData(patternAddr + 8)
 
@@ -133,6 +135,12 @@ func (ppu *ppu) writePpuCtrl(data uint8) {
 			ppu.sys.cpu.Nmi()
 		}
 		ppu.vblankCtrl = true
+	}
+
+	if data&0x10 > 0 {
+		ppu.bgTableOffset = 0x1000
+	} else {
+		ppu.bgTableOffset = 0x0000
 	}
 
 	if data&0x04 > 0 {
