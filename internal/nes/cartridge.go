@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/theaaronruss/nes-emulator/internal/mapper"
 )
 
 type Cartridge struct {
 	programData   []uint8
 	characterData []uint8
 
-	mapperId            int
+	// mapperId            int
+	mapper              mapper.Mapper
 	programDataChunks   int
 	characterDataChunks int
 	horizontalMirror    bool
@@ -55,8 +58,13 @@ func (cartridge *Cartridge) parseHeader(file *os.File) error {
 		return err
 	}
 
-	cartridge.mapperId = int(header[7] & 0xF0)
-	cartridge.mapperId |= int(header[6]) >> 4
+	var mapperId = int(header[7] & 0xF0)
+	mapperId |= int(header[6]) >> 4
+	createMapperFunc, ok := mapper.Mappers[mapperId]
+	if !ok {
+		return errors.New("mapper required by cartridge not implemented yet")
+	}
+	cartridge.mapper = createMapperFunc()
 
 	cartridge.programDataChunks = int(header[4])
 	cartridge.characterDataChunks = int(header[5])
@@ -97,14 +105,14 @@ func (cartridge *Cartridge) parseCharacterData(file *os.File) error {
 	return nil
 }
 
-func (cartridge *Cartridge) ReadCharacterData(addr uint16) uint8 {
-	// TODO: implement mapper
-	return 0
+func (cartridge *Cartridge) ReadProgramData(addr uint16) uint8 {
+	mappedAddr := cartridge.mapper.TranslateProgramDataAddress(cartridge.programDataChunks, addr)
+	return cartridge.programData[mappedAddr]
 }
 
-func (cartridge *Cartridge) ReadProgramData(addr uint16) uint8 {
-	// TODO: implement mapper
-	return 0
+func (cartridge *Cartridge) ReadCharacterData(addr uint16) uint8 {
+	mappedAddr := cartridge.mapper.TranslateCharacterDataAddress(cartridge.characterDataChunks, addr)
+	return cartridge.characterData[mappedAddr]
 }
 
 func (cartridge *Cartridge) HasHorizontalNameTableMirroring() bool {
