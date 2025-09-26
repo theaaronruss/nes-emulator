@@ -204,7 +204,12 @@ func (ppu *ppu) internalRead(addr uint16) uint8 {
 		return ppu.sys.cartridge.ReadCharacterData(addr)
 	case addr >= 0x2000 && addr <= 0x2FFF:
 		// name table ram
-		nameTableAddr := (addr - 0x2000) % 2048
+		var nameTableAddr uint16
+		if ppu.sys.cartridge.HasHorizontalNameTableMirroring() {
+			nameTableAddr = ppu.getHorizontalNameTableTile(addr - 0x2000)
+		} else {
+			nameTableAddr = ppu.getVerticalNameTableTile(addr - 0x2000)
+		}
 		return ppu.nameTableRam[nameTableAddr]
 	case addr >= 0x3F00 && addr <= 0x3FFF:
 		// palette ram
@@ -219,11 +224,36 @@ func (ppu *ppu) internalWrite(addr uint16, data uint8) {
 	switch {
 	case addr >= 0x2000 && addr <= 0x2FFF:
 		// name table ram
-		nameTableAddr := (addr - 0x2000) % 2048
+		var nameTableAddr uint16
+		if ppu.sys.cartridge.HasHorizontalNameTableMirroring() {
+			nameTableAddr = ppu.getHorizontalNameTableTile(addr - 0x2000)
+		} else {
+			nameTableAddr = ppu.getVerticalNameTableTile(addr - 0x2000)
+		}
 		ppu.nameTableRam[nameTableAddr] = data
 	case addr >= 0x3F00 && addr <= 0x3FFF:
 		// palette ram
 		paletteAddr := (addr - 0x3F00) % 32
 		ppu.paletteRam[paletteAddr] = data
+	}
+}
+
+func (ppu *ppu) getHorizontalNameTableTile(addr uint16) uint16 {
+	nameTableNum := addr / 0x0400
+	offset := addr % 0x0400
+	if nameTableNum == 0 || nameTableNum == 2 {
+		return offset
+	} else {
+		return 0x0400 + offset
+	}
+}
+
+func (ppu *ppu) getVerticalNameTableTile(addr uint16) uint16 {
+	nameTableNum := addr / 0x0400
+	offset := addr % 0x0400
+	if nameTableNum == 0 || nameTableNum == 1 {
+		return offset
+	} else {
+		return 0x0400 + offset
 	}
 }
