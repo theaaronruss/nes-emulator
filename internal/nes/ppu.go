@@ -83,18 +83,19 @@ func (ppu *ppu) Clock() {
 		}
 	}
 
-	if ppu.cycle == 256 && (ppu.scanLine <= 239 || ppu.scanLine == 261) {
-		ppu.incrementFineY()
-	}
+	if ppu.scanLine < 240 || ppu.scanLine == 261 {
+		if ppu.cycle == 256 {
+			ppu.incrementFineY()
+		}
 
-	if ppu.cycle == 257 && (ppu.scanLine <= 239 || ppu.scanLine == 261) {
-		ppu.loadIntoShifters()
-		ppu.loadXIntoVram()
-	}
+		if ppu.cycle == 257 {
+			ppu.loadIntoShifters()
+			ppu.loadXIntoVram()
+		}
 
-	if (ppu.cycle == 338 || ppu.cycle == 340) &&
-		(ppu.scanLine <= 239 || ppu.scanLine == 261) {
-		ppu.fetchTileId()
+		if ppu.cycle == 338 || ppu.cycle == 340 {
+			ppu.fetchTileId()
+		}
 	}
 
 	if ppu.cycle >= 280 && ppu.cycle <= 304 && ppu.scanLine == 261 {
