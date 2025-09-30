@@ -61,7 +61,7 @@ func (sys *System) FrameBuffer() []uint8 {
 }
 
 func (sys *System) ClockFrame() {
-	for range clocksPerFrame {
+	for !sys.ppu.frameComplete {
 		sys.ppu.Clock()
 		sys.ppuClocks++
 		if sys.ppuClocks >= 3 {
@@ -69,6 +69,7 @@ func (sys *System) ClockFrame() {
 			sys.cpu.Clock()
 		}
 	}
+	sys.ppu.frameComplete = false
 }
 
 func (sys *System) read(addr uint16) uint8 {
