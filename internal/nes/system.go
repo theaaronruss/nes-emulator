@@ -125,19 +125,19 @@ func (sys *System) write(addr uint16, data uint8) {
 func (sys *System) updateControllerInput() {
 	sys.controllerData = 0
 
-	if sys.win.Pressed(pixel.KeyPeriod) {
+	if sys.win.Pressed(pixel.KeyL) {
 		sys.controllerData |= btnA
 	}
 
-	if sys.win.Pressed(pixel.KeyComma) {
+	if sys.win.Pressed(pixel.KeyK) {
 		sys.controllerData |= btnB
 	}
 
-	if sys.win.Pressed(pixel.KeyK) {
+	if sys.win.Pressed(pixel.KeyG) {
 		sys.controllerData |= btnSelect
 	}
 
-	if sys.win.Pressed(pixel.KeyL) {
+	if sys.win.Pressed(pixel.KeyH) {
 		sys.controllerData |= btnStart
 	}
 
