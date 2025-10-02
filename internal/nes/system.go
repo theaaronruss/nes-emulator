@@ -21,6 +21,7 @@ const (
 	ppuScroll uint16 = 0x2005
 	ppuAddr   uint16 = 0x2006
 	ppuData   uint16 = 0x2007
+	oamDma    uint16 = 0x4014
 )
 
 // controller buttons
@@ -112,6 +113,8 @@ func (sys *System) write(addr uint16, data uint8) {
 		sys.ppu.writePpuAddr(data)
 	case addr == ppuData:
 		sys.ppu.writePpuData(data)
+	case addr == oamDma:
+		sys.ppu.writeOamDma(data)
 	case addr == 0x4016:
 		if data&0x01 > 0 {
 			sys.updateControllerInput()

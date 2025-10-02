@@ -405,6 +405,13 @@ func (ppu *ppu) writePpuData(data uint8) {
 	ppu.vramAddr += ppu.incrementAmount
 }
 
+func (ppu *ppu) writeOamDma(data uint8) {
+	for i := range len(ppu.oamMem) {
+		addr := uint16(data)<<8 + uint16(i)
+		ppu.oamMem[i] = ppu.sys.read(addr)
+	}
+}
+
 func (ppu *ppu) internalRead(addr uint16) uint8 {
 	switch {
 	case addr <= 0x1FFF:
