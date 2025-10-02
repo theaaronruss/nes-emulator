@@ -28,11 +28,13 @@ type ppu struct {
 	frameComplete       bool
 	paletteMem          [32]uint8
 	nameTableMem        [2048]uint8
+	oamMem              [256]uint8
 	cycle               int
 	scanLine            int
 	oddFrame            bool
 	tempAddr            uint16
 	vramAddr            uint16
+	oamAddr             uint8
 	fineX               uint8
 	writeToggle         bool
 	vblankNmiEnable     bool
@@ -63,6 +65,10 @@ func NewPpu(sys *System) *ppu {
 func (ppu *ppu) Clock() {
 	if ppu.cycle == 0 && ppu.scanLine == 261 && ppu.bgEnabled && ppu.oddFrame {
 		ppu.cycle++
+	}
+
+	if ppu.cycle >= 256 && ppu.cycle <= 320 {
+		ppu.writeOamAddr(0)
 	}
 
 	if ((ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 321 && ppu.cycle < 338)) &&
@@ -357,9 +363,11 @@ func (ppu *ppu) writePpuMask(data uint8) {
 }
 
 func (ppu *ppu) writeOamAddr(data uint8) {
+	ppu.oamAddr = data
 }
 
 func (ppu *ppu) writeOamData(data uint8) {
+	ppu.oamMem[ppu.oamAddr] = data
 }
 
 func (ppu *ppu) writePpuScroll(data uint8) {
