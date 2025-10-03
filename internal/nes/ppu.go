@@ -1,49 +1,79 @@
 package nes
 
 const (
-	FrameWidth  float64 = 256
-	FrameHeight float64 = 240
+	FrameWidth       float64 = 256
+	FrameHeight      float64 = 240
+	incrementHor     uint16  = 1
+	incrementVer     uint16  = 32
+	paletteMemSize   int     = 32
+	nameTableMemSize int     = 2048
+	oamMemSize       int     = 256
+	nameTableSize    uint16  = 0x0400
 )
 
-// bit masks
+// ppuctrl bit masks
 const (
-	vblankNmiEnableBitMask   uint8  = 0x80
-	bgPatternAddrBitMask     uint8  = 0x10
-	baseNameTableAddrBitMask uint8  = 0x03
-	incrementAmountBitMask   uint8  = 0x04
-	vblankBitMask            uint8  = 0x80
-	fgEnabledBitMask         uint8  = 0x10
-	bgEnabledBitMask         uint8  = 0x08
-	nameTableBitMask         uint16 = 0x0C00
-	nameTableXBitMask        uint16 = 0x0400
-	nameTableYBitMask        uint16 = 0x0800
-	coarseXBitMask           uint16 = 0x001F
-	coarseYBitMask           uint16 = 0x03E0
-	fineYBitMask             uint16 = 0x7000
+	nmiEnableBitMask         uint8 = 0x80
+	bgPatternAddrBitMask     uint8 = 0x10
+	vramIncrementBitMask     uint8 = 0x04
+	baseNameTableAddrBitMask uint8 = 0x03
+)
+
+// ppumask bit masks
+const (
+	fgEnabledBitMask uint8 = 0x10
+	bgEnabledBitMask uint8 = 0x08
+)
+
+// ppustatus bit mask
+const (
+	vblankBitMask uint8 = 0x80
+)
+
+// vram bit masks
+const (
+	nameTableXBitMask uint16 = 0x0400
+	nameTableYBitMask uint16 = 0x0800
+	coarseXBitMask    uint16 = 0x001F
+	coarseYBitMask    uint16 = 0x03E0
+	fineYBitMask      uint16 = 0x7000
+)
+
+// addresses
+const (
+	cartridgeAddrEnd   uint16 = 0x1FFF
+	nameTableAddrStart uint16 = 0x2000
+	nameTableAddrEnd   uint16 = 0x2FFF
+	paletteAddrStart   uint16 = 0x3F00
+	paletteAddrEnd     uint16 = 0x3FFF
 )
 
 type ppu struct {
-	sys                 *System
-	frameBuffer         []uint8
-	frameComplete       bool
-	paletteMem          [32]uint8
-	nameTableMem        [2048]uint8
-	oamMem              [256]uint8
-	cycle               int
-	scanLine            int
-	oddFrame            bool
-	tempAddr            uint16
-	vramAddr            uint16
-	oamAddr             uint8
-	fineX               uint8
-	writeToggle         bool
-	vblankNmiEnable     bool
-	bgPatternAddr       uint16
-	incrementAmount     uint16
-	vblank              bool
-	dataBuffer          uint8
-	bgEnabled           bool
-	fgEnabled           bool
+	sys           *System
+	frameBuffer   []uint8
+	frameComplete bool
+
+	paletteMem   [paletteMemSize]uint8
+	nameTableMem [nameTableMemSize]uint8
+	oamMem       [oamMemSize]uint8
+	dataBuffer   uint8
+
+	cycle       int
+	scanLine    int
+	oddFrame    bool
+	vblank      bool
+	tempAddr    uint16
+	vramAddr    uint16
+	oamAddr     uint8
+	fineX       uint8
+	writeToggle bool
+
+	vblankNmiEnable bool
+	bgPatternAddr   uint16
+	incrementAmount uint16
+	bgEnabled       bool
+	fgEnabled       bool
+
 	bgTileId            uint8
 	bgTileAttr          uint8
 	bgTileLsb           uint8
@@ -63,15 +93,16 @@ func NewPpu(sys *System) *ppu {
 }
 
 func (ppu *ppu) Clock() {
-	if ppu.cycle == 0 && ppu.scanLine == 261 && ppu.bgEnabled && ppu.oddFrame {
+	isRenderingEnabled := ppu.bgEnabled || ppu.fgEnabled
+
+	// skip cycle on odd frames
+	if ppu.cycle == 0 && ppu.scanLine == 261 &&
+		isRenderingEnabled && ppu.oddFrame {
 		ppu.cycle++
 	}
 
-	if ppu.cycle >= 256 && ppu.cycle <= 320 {
-		ppu.writeOamAddr(0)
-	}
-
-	if ((ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 321 && ppu.cycle < 338)) &&
+	if ppu.bgEnabled &&
+		((ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 321 && ppu.cycle < 338)) &&
 		(ppu.scanLine <= 239 || ppu.scanLine == 261) {
 		ppu.shiftShifters()
 		switch (ppu.cycle - 1) % 8 {
@@ -79,7 +110,7 @@ func (ppu *ppu) Clock() {
 			ppu.loadIntoShifters()
 			ppu.fetchTileId()
 		case 2:
-			ppu.fetchAttribute()
+			ppu.fetchTileAttribute()
 		case 4:
 			ppu.fetchBackgroundLow()
 		case 6:
@@ -89,7 +120,7 @@ func (ppu *ppu) Clock() {
 		}
 	}
 
-	if ppu.scanLine < 240 || ppu.scanLine == 261 {
+	if ppu.bgEnabled && ppu.scanLine < 240 || ppu.scanLine == 261 {
 		if ppu.cycle == 256 {
 			ppu.incrementFineY()
 		}
@@ -104,50 +135,35 @@ func (ppu *ppu) Clock() {
 		}
 	}
 
-	if ppu.cycle >= 280 && ppu.cycle <= 304 && ppu.scanLine == 261 {
+	if ppu.bgEnabled && ppu.scanLine == 261 && ppu.cycle >= 280 &&
+		ppu.cycle <= 304 {
 		ppu.loadYIntoVram()
 	}
 
-	if ppu.cycle == 1 && ppu.scanLine == 241 {
+	// draw visible pixels
+	if ppu.cycle < int(FrameWidth) && ppu.scanLine < int(FrameHeight) {
+		var bgPaletteIndex int
+		var bgColorIndex int
+		if ppu.bgEnabled {
+			bgPaletteIndex = ppu.getBackgroundPaletteIndex()
+			bgColorIndex = ppu.getBackgroundColorIndex()
+		}
+
+		color := ppu.getColorFromPalette(bgPaletteIndex, bgColorIndex)
+		dot := (ppu.scanLine*int(FrameWidth) + ppu.cycle) * 4
+		ppu.frameBuffer[dot] = color.r
+		ppu.frameBuffer[dot+1] = color.g
+		ppu.frameBuffer[dot+2] = color.b
+		ppu.frameBuffer[dot+3] = 0xFF
+	}
+
+	if ppu.scanLine == 241 && ppu.cycle == 1 {
 		ppu.vblank = true
 		if ppu.vblankNmiEnable {
 			ppu.sys.cpu.Nmi()
 		}
 	} else if ppu.cycle == 1 && ppu.scanLine == 261 {
 		ppu.vblank = false
-	}
-
-	if ppu.cycle < int(FrameWidth) && ppu.scanLine < int(FrameHeight) {
-		var color *color
-		if ppu.bgEnabled {
-			bitMask := uint16(0x8000 >> ppu.fineX)
-
-			var colorIndex int
-			if ppu.bgPatternLsbShifter&bitMask > 0 {
-				colorIndex |= 0x01
-			}
-			if ppu.bgPatternMsbShifter&bitMask > 0 {
-				colorIndex |= 0x02
-			}
-
-			var paletteIndex int
-			if ppu.bgAttrLsbShifter&bitMask > 0 {
-				paletteIndex |= 0x01
-			}
-			if ppu.bgAttrMsbShifter&bitMask > 0 {
-				paletteIndex |= 0x02
-			}
-
-			color = ppu.getColorFromPalette(paletteIndex, colorIndex)
-		} else {
-			color = &colors[0]
-		}
-		frameBufferIndex := ppu.scanLine*int(FrameWidth) + ppu.cycle
-		frameBufferIndex *= 4
-		ppu.frameBuffer[frameBufferIndex] = color.r
-		ppu.frameBuffer[frameBufferIndex+1] = color.g
-		ppu.frameBuffer[frameBufferIndex+2] = color.b
-		ppu.frameBuffer[frameBufferIndex+3] = 0xFF
 	}
 
 	ppu.cycle++
@@ -159,6 +175,38 @@ func (ppu *ppu) Clock() {
 			ppu.frameComplete = true
 		}
 	}
+}
+
+func (ppu *ppu) getBackgroundColorIndex() int {
+	if !ppu.bgEnabled {
+		return 0
+	}
+
+	bitMask := uint16(0x8000 >> ppu.fineX)
+	var colorIndex int
+	if ppu.bgPatternLsbShifter&bitMask > 0 {
+		colorIndex |= 0x01
+	}
+	if ppu.bgPatternMsbShifter&bitMask > 0 {
+		colorIndex |= 0x02
+	}
+	return colorIndex
+}
+
+func (ppu *ppu) getBackgroundPaletteIndex() int {
+	if !ppu.bgEnabled {
+		return 0
+	}
+
+	bitMask := uint16(0x8000 >> ppu.fineX)
+	var paletteIndex int
+	if ppu.bgAttrLsbShifter&bitMask > 0 {
+		paletteIndex |= 0x01
+	}
+	if ppu.bgAttrMsbShifter&bitMask > 0 {
+		paletteIndex |= 0x02
+	}
+	return paletteIndex
 }
 
 func (ppu *ppu) loadIntoShifters() {
@@ -265,7 +313,7 @@ func (ppu *ppu) fetchTileId() {
 	ppu.bgTileId = ppu.internalRead(addr)
 }
 
-func (ppu *ppu) fetchAttribute() {
+func (ppu *ppu) fetchTileAttribute() {
 	addr := 0x23C0 | (ppu.vramAddr & 0x0C00) | ((ppu.vramAddr >> 4) & 0x38) |
 		((ppu.vramAddr >> 2) & 0x07)
 	attr := ppu.internalRead(addr)
@@ -325,7 +373,7 @@ func (ppu *ppu) readPpuData() uint8 {
 }
 
 func (ppu *ppu) writePpuCtrl(data uint8) {
-	if data&vblankNmiEnableBitMask > 0 {
+	if data&nmiEnableBitMask > 0 {
 		ppu.vblankNmiEnable = true
 	} else {
 		ppu.vblankNmiEnable = false
@@ -337,13 +385,14 @@ func (ppu *ppu) writePpuCtrl(data uint8) {
 		ppu.bgPatternAddr = 0x0000
 	}
 
-	if data&incrementAmountBitMask > 0 {
-		ppu.incrementAmount = 32
+	if data&vramIncrementBitMask > 0 {
+		ppu.incrementAmount = uint16(incrementVer)
 	} else {
-		ppu.incrementAmount = 1
+		ppu.incrementAmount = uint16(incrementHor)
 	}
 
 	baseNameTableAddr := data & baseNameTableAddrBitMask
+	nameTableBitMask := nameTableXBitMask | nameTableYBitMask
 	ppu.tempAddr &= ^nameTableBitMask
 	ppu.tempAddr |= uint16(baseNameTableAddr) << 10
 }
@@ -414,18 +463,18 @@ func (ppu *ppu) writeOamDma(data uint8) {
 
 func (ppu *ppu) internalRead(addr uint16) uint8 {
 	switch {
-	case addr <= 0x1FFF:
+	case addr <= cartridgeAddrEnd:
 		return ppu.sys.cartridge.ReadCharacterData(addr)
-	case addr >= 0x2000 && addr <= 0x2FFF:
+	case addr >= nameTableAddrStart && addr <= nameTableAddrEnd:
 		var nameTableAddr uint16
 		if ppu.sys.cartridge.HasHorizontalNameTableMirroring() {
-			nameTableAddr = ppu.translateHorizontalNameTableAddr(addr - 0x2000)
+			nameTableAddr = ppu.translateHorizontalNameTableAddr(addr - nameTableAddrStart)
 		} else {
-			nameTableAddr = ppu.translateVerticalNameTableAddr(addr - 0x2000)
+			nameTableAddr = ppu.translateVerticalNameTableAddr(addr - nameTableAddrStart)
 		}
 		return ppu.nameTableMem[nameTableAddr]
-	case addr >= 0x3F00 && addr <= 0x3FFF:
-		paletteAddr := (addr - 0x3F00) % 32
+	case addr >= paletteAddrStart && addr <= paletteAddrEnd:
+		paletteAddr := (addr - paletteAddrStart) % uint16(paletteMemSize)
 		return ppu.paletteMem[paletteAddr]
 	}
 	return 0
@@ -433,34 +482,34 @@ func (ppu *ppu) internalRead(addr uint16) uint8 {
 
 func (ppu *ppu) internalWrite(addr uint16, data uint8) {
 	switch {
-	case addr >= 0x2000 && addr <= 0x2FFF:
+	case addr >= nameTableAddrStart && addr <= nameTableAddrEnd:
 		var nameTableAddr uint16
 		if ppu.sys.cartridge.HasHorizontalNameTableMirroring() {
-			nameTableAddr = ppu.translateHorizontalNameTableAddr(addr - 0x2000)
+			nameTableAddr = ppu.translateHorizontalNameTableAddr(addr - nameTableAddrStart)
 		} else {
-			nameTableAddr = ppu.translateVerticalNameTableAddr(addr - 0x2000)
+			nameTableAddr = ppu.translateVerticalNameTableAddr(addr - nameTableAddrStart)
 		}
 		ppu.nameTableMem[nameTableAddr] = data
-	case addr >= 0x3F00 && addr <= 0x3FFF:
-		paletteAddr := (addr - 0x3F00) % 32
+	case addr >= paletteAddrStart && addr <= paletteAddrEnd:
+		paletteAddr := (addr - paletteAddrStart) % uint16(paletteMemSize)
 		ppu.paletteMem[paletteAddr] = data
 	}
 }
 
 func (ppu *ppu) translateHorizontalNameTableAddr(addr uint16) uint16 {
-	nameTableNum := addr / 0x0400
-	offset := addr % 0x0400
-	if nameTableNum == 0 || nameTableNum == 2 {
+	nameTableIndex := addr / nameTableSize
+	offset := addr % nameTableSize
+	if nameTableIndex == 0 || nameTableIndex == 2 {
 		return offset
 	}
-	return 0x0400 + offset
+	return nameTableSize + offset
 }
 
 func (ppu *ppu) translateVerticalNameTableAddr(addr uint16) uint16 {
-	nameTableNum := addr / 0x0400
-	offset := addr % 0x0400
-	if nameTableNum == 0 || nameTableNum == 1 {
+	nameTableIndex := addr / nameTableSize
+	offset := addr % nameTableSize
+	if nameTableIndex == 0 || nameTableIndex == 1 {
 		return offset
 	}
-	return 0x0400 + offset
+	return nameTableSize + offset
 }
