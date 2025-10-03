@@ -8,12 +8,14 @@ const (
 	paletteMemSize   int     = 32
 	nameTableMemSize int     = 2048
 	oamMemSize       int     = 256
+	spritesSize      int     = 8
 	nameTableSize    uint16  = 0x0400
 )
 
 // ppuctrl bit masks
 const (
 	nmiEnableBitMask         uint8 = 0x80
+	tallSpritesBitMask       uint8 = 0x20
 	bgPatternAddrBitMask     uint8 = 0x10
 	vramIncrementBitMask     uint8 = 0x04
 	baseNameTableAddrBitMask uint8 = 0x03
@@ -27,7 +29,8 @@ const (
 
 // ppustatus bit mask
 const (
-	vblankBitMask uint8 = 0x80
+	vblankBitMask         uint8 = 0x80
+	spriteOverflowBitMask uint8 = 0x20
 )
 
 // vram bit masks
@@ -53,22 +56,26 @@ type ppu struct {
 	frameBuffer   []uint8
 	frameComplete bool
 
-	paletteMem   [paletteMemSize]uint8
-	nameTableMem [nameTableMemSize]uint8
-	oamMem       [oamMemSize]uint8
-	dataBuffer   uint8
+	paletteMem    [paletteMemSize]uint8
+	nameTableMem  [nameTableMemSize]uint8
+	oamMem        [oamMemSize]uint8
+	spriteIndices [spritesSize]int
+	spriteCount   int
+	dataBuffer    uint8
 
-	cycle       int
-	scanLine    int
-	oddFrame    bool
-	vblank      bool
-	tempAddr    uint16
-	vramAddr    uint16
-	oamAddr     uint8
-	fineX       uint8
-	writeToggle bool
+	cycle          int
+	scanLine       int
+	oddFrame       bool
+	vblank         bool
+	spriteOverflow bool
+	tempAddr       uint16
+	vramAddr       uint16
+	oamAddr        uint8
+	fineX          uint8
+	writeToggle    bool
 
 	vblankNmiEnable bool
+	spriteHeight    int
 	bgPatternAddr   uint16
 	incrementAmount uint16
 	bgEnabled       bool
@@ -103,7 +110,7 @@ func (ppu *ppu) Clock() {
 
 	if ppu.bgEnabled &&
 		((ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 321 && ppu.cycle < 338)) &&
-		(ppu.scanLine <= 239 || ppu.scanLine == 261) {
+		(ppu.scanLine < 240 || ppu.scanLine == 261) {
 		ppu.shiftShifters()
 		switch (ppu.cycle - 1) % 8 {
 		case 0:
@@ -118,6 +125,11 @@ func (ppu *ppu) Clock() {
 		case 7:
 			ppu.incrementCoarseX()
 		}
+	}
+
+	// sprite evaluation
+	if ppu.fgEnabled && ppu.scanLine < 240 && ppu.cycle == 0 {
+		ppu.spriteEvaluation()
 	}
 
 	if ppu.bgEnabled && ppu.scanLine < 240 || ppu.scanLine == 261 {
@@ -144,12 +156,29 @@ func (ppu *ppu) Clock() {
 	if ppu.cycle < int(FrameWidth) && ppu.scanLine < int(FrameHeight) {
 		var bgPaletteIndex int
 		var bgColorIndex int
+		var fgPaletteIndex int
+		var fgColorIndex int
 		if ppu.bgEnabled {
 			bgPaletteIndex = ppu.getBackgroundPaletteIndex()
 			bgColorIndex = ppu.getBackgroundColorIndex()
 		}
+		spriteNum, spriteFound := ppu.getSpriteAtDot()
+		var priority bool
+		if ppu.fgEnabled && spriteFound {
+			fgPaletteIndex = ppu.getSpritePaletteIndex(spriteNum)
+			fgColorIndex = ppu.getSpriteColorIndex(spriteNum)
+			priority = ppu.oamMem[spriteNum*4+2]&0x20 == 0
+		}
 
-		color := ppu.getColorFromPalette(bgPaletteIndex, bgColorIndex)
+		paletteIndex := bgPaletteIndex
+		colorIndex := bgColorIndex
+		if spriteFound && priority {
+			paletteIndex = fgPaletteIndex
+			colorIndex = fgColorIndex
+		}
+
+		color := ppu.getColorFromPalette(paletteIndex, colorIndex)
+
 		dot := (ppu.scanLine*int(FrameWidth) + ppu.cycle) * 4
 		ppu.frameBuffer[dot] = color.r
 		ppu.frameBuffer[dot+1] = color.g
@@ -164,6 +193,7 @@ func (ppu *ppu) Clock() {
 		}
 	} else if ppu.cycle == 1 && ppu.scanLine == 261 {
 		ppu.vblank = false
+		ppu.spriteOverflow = false
 	}
 
 	ppu.cycle++
@@ -175,6 +205,22 @@ func (ppu *ppu) Clock() {
 			ppu.frameComplete = true
 		}
 	}
+}
+
+func (ppu *ppu) getBackgroundPaletteIndex() int {
+	if !ppu.bgEnabled {
+		return 0
+	}
+
+	bitMask := uint16(0x8000 >> ppu.fineX)
+	var paletteIndex int
+	if ppu.bgAttrLsbShifter&bitMask > 0 {
+		paletteIndex |= 0x01
+	}
+	if ppu.bgAttrMsbShifter&bitMask > 0 {
+		paletteIndex |= 0x02
+	}
+	return paletteIndex
 }
 
 func (ppu *ppu) getBackgroundColorIndex() int {
@@ -193,20 +239,42 @@ func (ppu *ppu) getBackgroundColorIndex() int {
 	return colorIndex
 }
 
-func (ppu *ppu) getBackgroundPaletteIndex() int {
-	if !ppu.bgEnabled {
-		return 0
+func (ppu *ppu) getSpriteAtDot() (int, bool) {
+	for i := range ppu.spriteCount {
+		spriteNum := ppu.spriteIndices[i]
+		spriteX := ppu.oamMem[spriteNum*4+3]
+		if spriteX >= uint8(ppu.cycle) && spriteX < uint8(ppu.cycle)+8 {
+			return spriteNum, true
+		}
 	}
+	return -1, false
+}
 
-	bitMask := uint16(0x8000 >> ppu.fineX)
-	var paletteIndex int
-	if ppu.bgAttrLsbShifter&bitMask > 0 {
-		paletteIndex |= 0x01
+func (ppu *ppu) spriteEvaluation() {
+	ppu.spriteCount = 0
+	for i := range oamMemSize / 4 {
+		spriteY := ppu.oamMem[i*4]
+		if spriteY >= uint8(ppu.scanLine) &&
+			spriteY < uint8(ppu.scanLine)+uint8(ppu.spriteHeight) {
+			if ppu.spriteCount < 8 {
+				ppu.spriteIndices[ppu.spriteCount] = i
+			}
+			ppu.spriteCount++
+		}
+		if ppu.spriteCount >= 8 {
+			ppu.spriteOverflow = true
+			break
+		}
 	}
-	if ppu.bgAttrMsbShifter&bitMask > 0 {
-		paletteIndex |= 0x02
-	}
-	return paletteIndex
+}
+
+func (ppu *ppu) getSpritePaletteIndex(spriteIndex int) int {
+	attr := ppu.oamMem[spriteIndex*4+2]
+	return int(attr & 0x02)
+}
+
+func (ppu *ppu) getSpriteColorIndex(spriteIndex int) int {
+	return 1
 }
 
 func (ppu *ppu) loadIntoShifters() {
@@ -357,6 +425,10 @@ func (ppu *ppu) readPpuStatus() uint8 {
 		status |= vblankBitMask
 	}
 
+	if ppu.spriteOverflow {
+		status |= spriteOverflowBitMask
+	}
+
 	ppu.writeToggle = false
 	return status
 }
@@ -377,6 +449,12 @@ func (ppu *ppu) writePpuCtrl(data uint8) {
 		ppu.vblankNmiEnable = true
 	} else {
 		ppu.vblankNmiEnable = false
+	}
+
+	if data&tallSpritesBitMask > 0 {
+		ppu.spriteHeight = 16
+	} else {
+		ppu.spriteHeight = 8
 	}
 
 	if data&bgPatternAddrBitMask > 0 {
