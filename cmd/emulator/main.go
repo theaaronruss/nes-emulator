@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/gopxl/pixel/v2"
 	"github.com/gopxl/pixel/v2/backends/opengl"
 	"github.com/theaaronruss/nes-emulator/internal/nes"
@@ -26,7 +28,13 @@ func run() {
 	canvas := opengl.NewCanvas(pixel.R(0, 0, nes.FrameWidth, nes.FrameHeight))
 
 	for !window.Closed() {
+		start := time.Now()
 		system.ClockFrame()
+		elapsed := time.Since(start)
+		sleepTime := (time.Second / 60) - elapsed
+		if sleepTime > 0 {
+			time.Sleep(sleepTime)
+		}
 
 		canvas.SetPixels(system.FrameBuffer())
 
