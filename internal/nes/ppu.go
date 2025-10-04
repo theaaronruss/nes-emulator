@@ -8,7 +8,6 @@ const (
 	paletteMemSize   int     = 32
 	nameTableMemSize int     = 2048
 	oamMemSize       int     = 256
-	spritesSize      int     = 8
 	nameTableSize    uint16  = 0x0400
 )
 
@@ -56,12 +55,10 @@ type ppu struct {
 	frameBuffer   []uint8
 	frameComplete bool
 
-	paletteMem    [paletteMemSize]uint8
-	nameTableMem  [nameTableMemSize]uint8
-	oamMem        [oamMemSize]uint8
-	spriteIndices [spritesSize]int
-	spriteCount   int
-	dataBuffer    uint8
+	paletteMem   [paletteMemSize]uint8
+	nameTableMem [nameTableMemSize]uint8
+	oamMem       [oamMemSize]uint8
+	dataBuffer   uint8
 
 	cycle          int
 	scanLine       int
@@ -127,11 +124,6 @@ func (ppu *ppu) Clock() {
 		}
 	}
 
-	// sprite evaluation
-	if ppu.fgEnabled && ppu.scanLine < 240 && ppu.cycle == 0 {
-		ppu.spriteEvaluation()
-	}
-
 	if ppu.bgEnabled && ppu.scanLine < 240 || ppu.scanLine == 261 {
 		if ppu.cycle == 256 {
 			ppu.incrementFineY()
@@ -156,29 +148,12 @@ func (ppu *ppu) Clock() {
 	if ppu.cycle < int(FrameWidth) && ppu.scanLine < int(FrameHeight) {
 		var bgPaletteIndex int
 		var bgColorIndex int
-		var fgPaletteIndex int
-		var fgColorIndex int
 		if ppu.bgEnabled {
 			bgPaletteIndex = ppu.getBackgroundPaletteIndex()
 			bgColorIndex = ppu.getBackgroundColorIndex()
 		}
-		spriteNum, spriteFound := ppu.getSpriteAtDot()
-		var priority bool
-		if ppu.fgEnabled && spriteFound {
-			fgPaletteIndex = ppu.getSpritePaletteIndex(spriteNum)
-			fgColorIndex = ppu.getSpriteColorIndex(spriteNum)
-			priority = ppu.oamMem[spriteNum*4+2]&0x20 == 0
-		}
 
-		paletteIndex := bgPaletteIndex
-		colorIndex := bgColorIndex
-		if spriteFound && priority {
-			paletteIndex = fgPaletteIndex
-			colorIndex = fgColorIndex
-		}
-
-		color := ppu.getColorFromPalette(paletteIndex, colorIndex)
-
+		color := ppu.getColorFromPalette(bgPaletteIndex, bgColorIndex)
 		dot := (ppu.scanLine*int(FrameWidth) + ppu.cycle) * 4
 		ppu.frameBuffer[dot] = color.r
 		ppu.frameBuffer[dot+1] = color.g
@@ -237,44 +212,6 @@ func (ppu *ppu) getBackgroundColorIndex() int {
 		colorIndex |= 0x02
 	}
 	return colorIndex
-}
-
-func (ppu *ppu) getSpriteAtDot() (int, bool) {
-	for i := range ppu.spriteCount {
-		spriteNum := ppu.spriteIndices[i]
-		spriteX := ppu.oamMem[spriteNum*4+3]
-		if spriteX >= uint8(ppu.cycle) && spriteX < uint8(ppu.cycle)+8 {
-			return spriteNum, true
-		}
-	}
-	return -1, false
-}
-
-func (ppu *ppu) spriteEvaluation() {
-	ppu.spriteCount = 0
-	for i := range oamMemSize / 4 {
-		spriteY := ppu.oamMem[i*4]
-		if spriteY >= uint8(ppu.scanLine) &&
-			spriteY < uint8(ppu.scanLine)+uint8(ppu.spriteHeight) {
-			if ppu.spriteCount < 8 {
-				ppu.spriteIndices[ppu.spriteCount] = i
-			}
-			ppu.spriteCount++
-		}
-		if ppu.spriteCount >= 8 {
-			ppu.spriteOverflow = true
-			break
-		}
-	}
-}
-
-func (ppu *ppu) getSpritePaletteIndex(spriteIndex int) int {
-	attr := ppu.oamMem[spriteIndex*4+2]
-	return int(attr & 0x02)
-}
-
-func (ppu *ppu) getSpriteColorIndex(spriteIndex int) int {
-	return 1
 }
 
 func (ppu *ppu) loadIntoShifters() {
