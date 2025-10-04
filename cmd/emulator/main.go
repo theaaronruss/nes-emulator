@@ -19,7 +19,7 @@ func run() {
 		panic(err)
 	}
 
-	cartridge, err := nes.NewCartridge("roms/nestest.nes")
+	cartridge, err := nes.NewCartridge("roms/donkeykong.nes")
 	if err != nil {
 		panic(err.Error())
 	}

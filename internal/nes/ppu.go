@@ -58,6 +58,8 @@ type ppu struct {
 	paletteMem   [paletteMemSize]uint8
 	nameTableMem [nameTableMemSize]uint8
 	oamMem       [oamMemSize]uint8
+	secondOamMem [32]uint8
+	spriteCount  int
 	dataBuffer   uint8
 
 	cycle          int
@@ -89,10 +91,19 @@ type ppu struct {
 }
 
 func NewPpu(sys *System) *ppu {
-	return &ppu{
+	ppu := &ppu{
 		sys:             sys,
 		frameBuffer:     make([]uint8, int(FrameWidth)*int(FrameHeight)*4),
 		incrementAmount: 1,
+	}
+	ppu.clearSecondOamMem()
+	return ppu
+}
+
+func (ppu *ppu) clearSecondOamMem() {
+	ppu.spriteCount = 0
+	for i := range len(ppu.secondOamMem) {
+		ppu.secondOamMem[i] = 0xFF
 	}
 }
 
@@ -144,16 +155,48 @@ func (ppu *ppu) Clock() {
 		ppu.loadYIntoVram()
 	}
 
+	if ppu.fgEnabled && ppu.scanLine < 240 && ppu.cycle == 0 {
+		ppu.spriteEvaluation()
+	}
+
 	// draw visible pixels
 	if ppu.cycle < int(FrameWidth) && ppu.scanLine < int(FrameHeight) {
 		var bgPaletteIndex int
+		var fgPaletteIndex int
 		var bgColorIndex int
+		var fgColorIndex int
+		var priority bool
 		if ppu.bgEnabled {
 			bgPaletteIndex = ppu.getBackgroundPaletteIndex()
 			bgColorIndex = ppu.getBackgroundColorIndex()
 		}
+		if ppu.fgEnabled {
+			for spriteNum := ppu.spriteCount - 1; spriteNum >= 0; spriteNum-- {
+				spriteX := int(ppu.secondOamMem[spriteNum*4+3])
+				priority = ppu.secondOamMem[spriteNum*4+2]&0x20 == 0
+				fgPaletteIndex = int(ppu.secondOamMem[spriteNum*4+2]&0x02) + 4
+				if ppu.cycle >= spriteX && ppu.cycle < spriteX+8 {
+					fgColorIndex = 1
+					break
+				}
+			}
+		}
 
-		color := ppu.getColorFromPalette(bgPaletteIndex, bgColorIndex)
+		paletteIndex := bgPaletteIndex
+		colorIndex := bgColorIndex
+		if bgColorIndex > 0 && fgColorIndex > 0 {
+			if priority {
+				paletteIndex = fgPaletteIndex
+				colorIndex = fgColorIndex
+			} else {
+				paletteIndex = bgPaletteIndex
+				colorIndex = bgColorIndex
+			}
+		} else if fgColorIndex > 0 {
+			paletteIndex = fgPaletteIndex
+			colorIndex = fgColorIndex
+		}
+		color := ppu.getColorFromPalette(paletteIndex, colorIndex)
 		dot := (ppu.scanLine*int(FrameWidth) + ppu.cycle) * 4
 		ppu.frameBuffer[dot] = color.r
 		ppu.frameBuffer[dot+1] = color.g
@@ -179,6 +222,26 @@ func (ppu *ppu) Clock() {
 			ppu.scanLine = 0
 			ppu.frameComplete = true
 		}
+	}
+}
+
+func (ppu *ppu) spriteEvaluation() {
+	ppu.clearSecondOamMem()
+	for spriteIndex := range len(ppu.oamMem) / 4 {
+		spriteY := int(ppu.oamMem[spriteIndex*4])
+		if ppu.scanLine >= spriteY+1 && ppu.scanLine < spriteY+9 {
+			ppu.copyToSecondOamMem(spriteIndex)
+			ppu.spriteCount++
+			if ppu.spriteCount >= 8 {
+				break
+			}
+		}
+	}
+}
+
+func (ppu *ppu) copyToSecondOamMem(spriteIndex int) {
+	for i := range 4 {
+		ppu.secondOamMem[ppu.spriteCount*4+i] = ppu.oamMem[spriteIndex*4+i]
 	}
 }
 
