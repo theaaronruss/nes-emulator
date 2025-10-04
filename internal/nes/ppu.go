@@ -16,6 +16,7 @@ const (
 	nmiEnableBitMask         uint8 = 0x80
 	tallSpritesBitMask       uint8 = 0x20
 	bgPatternAddrBitMask     uint8 = 0x10
+	fgPatternAddrBitMask     uint8 = 0x08
 	vramIncrementBitMask     uint8 = 0x04
 	baseNameTableAddrBitMask uint8 = 0x03
 )
@@ -76,18 +77,21 @@ type ppu struct {
 	vblankNmiEnable bool
 	spriteHeight    int
 	bgPatternAddr   uint16
+	fgPatternAddr   uint16
 	incrementAmount uint16
 	bgEnabled       bool
 	fgEnabled       bool
 
-	bgTileId            uint8
-	bgTileAttr          uint8
-	bgTileLsb           uint8
-	bgTileMsb           uint8
-	bgPatternLsbShifter uint16
-	bgPatternMsbShifter uint16
-	bgAttrLsbShifter    uint16
-	bgAttrMsbShifter    uint16
+	bgTileId             uint8
+	bgTileAttr           uint8
+	bgTileLsb            uint8
+	bgTileMsb            uint8
+	bgPatternLsbShifter  uint16
+	bgPatternMsbShifter  uint16
+	bgAttrLsbShifter     uint16
+	bgAttrMsbShifter     uint16
+	fgPatternLsbShifters [8]uint8
+	fgPatternMsbShifters [8]uint8
 }
 
 func NewPpu(sys *System) *ppu {
@@ -174,9 +178,13 @@ func (ppu *ppu) Clock() {
 			for spriteNum := ppu.spriteCount - 1; spriteNum >= 0; spriteNum-- {
 				spriteX := int(ppu.secondOamMem[spriteNum*4+3])
 				priority = ppu.secondOamMem[spriteNum*4+2]&0x20 == 0
-				fgPaletteIndex = int(ppu.secondOamMem[spriteNum*4+2]&0x02) + 4
+				fgPaletteIndex = int(ppu.secondOamMem[spriteNum*4+2]&0x03) + 4
 				if ppu.cycle >= spriteX && ppu.cycle < spriteX+8 {
-					fgColorIndex = 1
+					low := ppu.fgPatternLsbShifters[spriteNum] & 0x01
+					high := ppu.fgPatternMsbShifters[spriteNum] & 0x01
+					ppu.fgPatternLsbShifters[spriteNum] >>= 1
+					ppu.fgPatternMsbShifters[spriteNum] >>= 1
+					fgColorIndex = int(high<<1 | low)
 					break
 				}
 			}
@@ -230,7 +238,9 @@ func (ppu *ppu) spriteEvaluation() {
 	for spriteIndex := range len(ppu.oamMem) / 4 {
 		spriteY := int(ppu.oamMem[spriteIndex*4])
 		if ppu.scanLine >= spriteY+1 && ppu.scanLine < spriteY+9 {
+			patternRow := ppu.scanLine - spriteY - 1
 			ppu.copyToSecondOamMem(spriteIndex)
+			ppu.loadIntoForegroundShifters(spriteIndex, patternRow)
 			ppu.spriteCount++
 			if ppu.spriteCount >= 8 {
 				break
@@ -243,6 +253,30 @@ func (ppu *ppu) copyToSecondOamMem(spriteIndex int) {
 	for i := range 4 {
 		ppu.secondOamMem[ppu.spriteCount*4+i] = ppu.oamMem[spriteIndex*4+i]
 	}
+}
+
+func (ppu *ppu) loadIntoForegroundShifters(spriteIndex int, patternRow int) {
+	tileId := int(ppu.oamMem[spriteIndex*4+1])
+	flipVer := ppu.oamMem[spriteIndex*4+2]&0x80 > 0
+	flipHor := ppu.oamMem[spriteIndex*4+2]&0x40 == 0
+	if flipVer {
+		patternRow = 7 - patternRow
+	}
+	lowAddr := ppu.fgPatternAddr + (uint16(tileId) * 16) + uint16(patternRow)
+	highAddr := ppu.fgPatternAddr + (uint16(tileId) * 16) + uint16(patternRow) + 8
+	low := ppu.internalRead(lowAddr)
+	high := ppu.internalRead(highAddr)
+	if flipHor {
+		low = (low&0xF0)>>4 | (low&0x0F)<<4
+		low = (low&0xCC)>>2 | (low&0x33)<<2
+		low = (low&0xAA)>>1 | (low&0x55)<<1
+
+		high = (high&0xF0)>>4 | (high&0x0F)<<4
+		high = (high&0xCC)>>2 | (high&0x33)<<2
+		high = (high&0xAA)>>1 | (high&0x55)<<1
+	}
+	ppu.fgPatternLsbShifters[ppu.spriteCount] = low
+	ppu.fgPatternMsbShifters[ppu.spriteCount] = high
 }
 
 func (ppu *ppu) getBackgroundPaletteIndex() int {
@@ -461,6 +495,12 @@ func (ppu *ppu) writePpuCtrl(data uint8) {
 		ppu.bgPatternAddr = 0x1000
 	} else {
 		ppu.bgPatternAddr = 0x0000
+	}
+
+	if data&fgPatternAddrBitMask > 0 {
+		ppu.fgPatternAddr = 0x1000
+	} else {
+		ppu.fgPatternAddr = 0x0000
 	}
 
 	if data&vramIncrementBitMask > 0 {
