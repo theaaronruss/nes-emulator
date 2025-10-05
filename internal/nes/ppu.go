@@ -30,6 +30,7 @@ const (
 // ppustatus bit mask
 const (
 	vblankBitMask         uint8 = 0x80
+	spriteHitBitMask      uint8 = 0x40
 	spriteOverflowBitMask uint8 = 0x20
 )
 
@@ -79,6 +80,7 @@ type ppu struct {
 	bgPatternAddr   uint16
 	fgPatternAddr   uint16
 	incrementAmount uint16
+	spriteHit       bool
 	bgEnabled       bool
 	fgEnabled       bool
 
@@ -175,7 +177,8 @@ func (ppu *ppu) Clock() {
 			bgColorIndex = ppu.getBackgroundColorIndex()
 		}
 		if ppu.fgEnabled {
-			for spriteNum := ppu.spriteCount - 1; spriteNum >= 0; spriteNum-- {
+			// for spriteNum := ppu.spriteCount - 1; spriteNum >= 0; spriteNum-- {
+			for spriteNum := range ppu.spriteCount {
 				spriteX := int(ppu.secondOamMem[spriteNum*4+3])
 				priority = ppu.secondOamMem[spriteNum*4+2]&0x20 == 0
 				fgPaletteIndex = int(ppu.secondOamMem[spriteNum*4+2]&0x03) + 4
@@ -185,7 +188,9 @@ func (ppu *ppu) Clock() {
 					ppu.fgPatternLsbShifters[spriteNum] >>= 1
 					ppu.fgPatternMsbShifters[spriteNum] >>= 1
 					fgColorIndex = int(high<<1 | low)
-					break
+					if fgColorIndex > 0 {
+						break
+					}
 				}
 			}
 		}
@@ -193,6 +198,7 @@ func (ppu *ppu) Clock() {
 		paletteIndex := bgPaletteIndex
 		colorIndex := bgColorIndex
 		if bgColorIndex > 0 && fgColorIndex > 0 {
+			ppu.spriteHit = true
 			if priority {
 				paletteIndex = fgPaletteIndex
 				colorIndex = fgColorIndex
@@ -220,6 +226,7 @@ func (ppu *ppu) Clock() {
 	} else if ppu.cycle == 1 && ppu.scanLine == 261 {
 		ppu.vblank = false
 		ppu.spriteOverflow = false
+		ppu.spriteHit = false
 	}
 
 	ppu.cycle++
@@ -461,6 +468,10 @@ func (ppu *ppu) readPpuStatus() uint8 {
 
 	if ppu.spriteOverflow {
 		status |= spriteOverflowBitMask
+	}
+
+	if ppu.spriteHit {
+		status |= spriteHitBitMask
 	}
 
 	ppu.writeToggle = false
