@@ -248,9 +248,8 @@ func (ppu *ppu) spriteEvaluation() {
 				patternRow := ppu.scanLine - spriteY - 1
 				ppu.copyToSecondOamMem(spriteIndex)
 				ppu.loadIntoForegroundShifters(spriteIndex, patternRow)
-			}
-			ppu.spriteCount++
-			if ppu.spriteCount >= 9 {
+				ppu.spriteCount++
+			} else {
 				ppu.spriteOverflow = true
 				break
 			}
@@ -454,6 +453,9 @@ func (ppu *ppu) fetchBackgroundHigh() {
 }
 
 func (ppu *ppu) getColorFromPalette(paletteIndex int, colorIndex int) *color {
+	if colorIndex == 0 {
+		paletteIndex = 0
+	}
 	paletteIndex &= 0x0007
 	colorIndex &= 0x0003
 	index := paletteIndex*4 + colorIndex
