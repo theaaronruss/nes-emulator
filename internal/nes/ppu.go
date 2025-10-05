@@ -605,7 +605,10 @@ func (ppu *ppu) internalRead(addr uint16) uint8 {
 		}
 		return ppu.nameTableMem[nameTableAddr]
 	case addr >= paletteAddrStart && addr <= paletteAddrEnd:
-		paletteAddr := (addr - paletteAddrStart) % uint16(paletteMemSize)
+		paletteAddr := (addr - paletteAddrStart) & 0x1F
+		if paletteAddr >= 0x10 && paletteAddr%4 == 0 {
+			paletteAddr = 0
+		}
 		return ppu.paletteMem[paletteAddr]
 	}
 	return 0
@@ -622,7 +625,10 @@ func (ppu *ppu) internalWrite(addr uint16, data uint8) {
 		}
 		ppu.nameTableMem[nameTableAddr] = data
 	case addr >= paletteAddrStart && addr <= paletteAddrEnd:
-		paletteAddr := (addr - paletteAddrStart) % uint16(paletteMemSize)
+		paletteAddr := (addr - paletteAddrStart) & 0x1F
+		if paletteAddr >= 0x10 && paletteAddr%4 == 0 {
+			paletteAddr = 0
+		}
 		ppu.paletteMem[paletteAddr] = data
 	}
 }
