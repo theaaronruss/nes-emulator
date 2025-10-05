@@ -177,7 +177,6 @@ func (ppu *ppu) Clock() {
 			bgColorIndex = ppu.getBackgroundColorIndex()
 		}
 		if ppu.fgEnabled {
-			// for spriteNum := ppu.spriteCount - 1; spriteNum >= 0; spriteNum-- {
 			for spriteNum := range ppu.spriteCount {
 				spriteX := int(ppu.secondOamMem[spriteNum*4+3])
 				priority = ppu.secondOamMem[spriteNum*4+2]&0x20 == 0
@@ -245,11 +244,14 @@ func (ppu *ppu) spriteEvaluation() {
 	for spriteIndex := range len(ppu.oamMem) / 4 {
 		spriteY := int(ppu.oamMem[spriteIndex*4])
 		if ppu.scanLine >= spriteY+1 && ppu.scanLine < spriteY+9 {
-			patternRow := ppu.scanLine - spriteY - 1
-			ppu.copyToSecondOamMem(spriteIndex)
-			ppu.loadIntoForegroundShifters(spriteIndex, patternRow)
+			if ppu.spriteCount < 8 {
+				patternRow := ppu.scanLine - spriteY - 1
+				ppu.copyToSecondOamMem(spriteIndex)
+				ppu.loadIntoForegroundShifters(spriteIndex, patternRow)
+			}
 			ppu.spriteCount++
-			if ppu.spriteCount >= 8 {
+			if ppu.spriteCount >= 9 {
+				ppu.spriteOverflow = true
 				break
 			}
 		}
