@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/gopxl/pixel/v2"
@@ -9,6 +11,14 @@ import (
 )
 
 func run() {
+	if len(os.Args) != 2 {
+		fmt.Println("Usage: emulator <rom_file>")
+		fmt.Println("Example: emulator donkeykong.nes")
+		os.Exit(1)
+	}
+
+	romFile := os.Args[1]
+
 	windowConfig := opengl.WindowConfig{
 		Title:  "NES Emulator",
 		Bounds: pixel.R(0, 0, nes.FrameWidth*2, nes.FrameHeight*2),
@@ -19,7 +29,7 @@ func run() {
 		panic(err)
 	}
 
-	cartridge, err := nes.NewCartridge("roms/donkeykong.nes")
+	cartridge, err := nes.NewCartridge(romFile)
 	if err != nil {
 		panic(err.Error())
 	}
